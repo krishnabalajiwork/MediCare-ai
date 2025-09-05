@@ -2,36 +2,26 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import random
+import io
 
-# You can move the Agent and load_data to a utils.py file for even cleaner code
-# For simplicity, we'll keep them here for now.
-# Assume patients_database.csv is in the root folder.
 @st.cache_data
 def load_data():
+    # Using a self-contained data snippet to ensure it runs correctly.
+    # For your live app, you can switch this to: pd.read_csv('patients_database.csv')
     try:
-        return pd.read_csv('patients_database.csv')
+        csv_text_data = """patient_id,first_name,last_name,date_of_birth,patient_type
+PAT1000,Kenneth,Davis,12/09/1945,New
+PAT1001,James,Johnson,04/08/1949,Returning
+PAT1002,John,Carter,03/23/1995,New
+"""
+        return pd.read_csv(io.StringIO(csv_text_data))
     except FileNotFoundError:
+        st.error("patients_database.csv not found!")
         return None
-
-class AISchedulingAgent:
-    def __init__(self):
-        self.patients_df = load_data()
-    # ... (rest of the agent logic from previous code)
-    
-    def book_appointment(self, patient_data, doctor, date, time):
-        # Your booking logic here
-        return {
-            'appointment_id': f"APT{random.randint(10000, 99999)}",
-            'patient_name': f"{patient_data['first_name']} {patient_data['last_name']}",
-            'doctor': doctor,
-            'date': date,
-            'time': time,
-        }
 
 def render():
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    agent = AISchedulingAgent()
-
+    
     if 'appointment_confirmed' not in st.session_state:
         st.session_state.appointment_confirmed = False
 
@@ -69,13 +59,21 @@ def render():
             
             submitted = st.form_submit_button("Confirm My Appointment")
             if submitted:
-                # Add validation here
-                patient_data = {'first_name': first_name, 'last_name': last_name}
-                final_doctor = random.choice(['Dr. Sarah Chen', 'Dr. Michael Rodriguez']) if doctor == 'Any Available' else doctor
-                details = agent.book_appointment(patient_data, final_doctor, req_date.strftime('%Y-%m-%d'), req_time)
-                
-                st.session_state.appointment_confirmed = True
-                st.session_state.appointment_details = details
-                st.rerun()
+                # Basic validation
+                if not first_name or not last_name:
+                    st.warning("Please enter your first and last name.")
+                else:
+                    patient_data = {'first_name': first_name, 'last_name': last_name}
+                    final_doctor = random.choice(['Dr. Sarah Chen', 'Dr. Michael Rodriguez']) if doctor == 'Any Available' else doctor
+                    
+                    st.session_state.appointment_details = {
+                        'appointment_id': f"APT{random.randint(10000, 99999)}",
+                        'patient_name': f"{first_name} {last_name}",
+                        'doctor': final_doctor,
+                        'date': req_date.strftime('%Y-%m-%d'),
+                        'time': req_time,
+                    }
+                    st.session_state.appointment_confirmed = True
+                    st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
