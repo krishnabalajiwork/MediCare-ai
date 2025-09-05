@@ -39,11 +39,7 @@ def render():
         
         Use our AI Scheduling Agent to book an appointment with one of our specialists today.
         """)
-        if st.button("Book an Appointment Now"):
-             # This uses a trick to switch pages programmatically. Requires Streamlit 1.29+
-            st.query_params["page"] = "Booking"
-
-
+        
     with col2:
         if lottie_anim:
             st_lottie(lottie_anim, height=300, key="medical_animation")
