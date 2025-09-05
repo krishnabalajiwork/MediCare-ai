@@ -1,0 +1,51 @@
+patient_id,first_name,last_name,full_name,date_of_birth,phone,email,insurance_company,member_id,group_number,patient_type,last_visit,known_allergies,preferred_doctor
+PAT1000,Kenneth,Davis,Kenneth Davis,12/09/1945,(450) 428-3286,kenneth.davis@email.com,Aetna,DEF876646,GRP9935,New,,"Cats, dogs",Dr. Robert Kim
+PAT1001,James,Johnson,James Johnson,04/08/1949,(717) 816-1434,james.johnson@email.com,Centene,ABC850800,GRP9928,Returning,04/16/2025,"Latex, penicillin",Dr. Emily Johnson
+PAT1002,John,Carter,John Carter,03/23/1995,(632) 548-5552,john.carter@email.com,Cigna,ABC900581,GRP6514,New,,No known allergies,Dr. Robert Kim
+PAT1003,Michael,Thompson,Michael Thompson,06/20/1998,(470) 244-8527,michael.thompson@email.com,Centene,ABC496922,GRP2291,Returning,09/19/2024,"Cats, dogs",Dr. Emily Johnson
+PAT1004,Andrew,Gonzalez,Andrew Gonzalez,02/02/1989,(877) 433-5741,andrew.gonzalez@email.com,Aetna,ABC205907,GRP7227,Returning,12/17/2024,Seasonal pollen,Dr. Emily Johnson
+PAT1005,David,White,David White,04/22/1966,(473) 918-2169,david.white@email.com,Independence Blue Cross,DEF279451,GRP9751,New,,"Peanuts, shellfish",Dr. Robert Kim
+PAT1006,Matthew,Moore,Matthew Moore,11/23/2003,(770) 424-6313,matthew.moore@email.com,Blue Cross Blue Shield,ABC961722,GRP1525,Returning,01/13/2025,"Dust mites, pollen",Dr. Sarah Chen
+PAT1007,Susan,Torres,Susan Torres,12/11/2000,(417) 871-9179,susan.torres@email.com,Anthem,DEF581141,GRP3340,Returning,05/27/2025,"Peanuts, shellfish",Dr. Emily Johnson
+PAT1008,Deborah,Nguyen,Deborah Nguyen,10/13/1971,(570) 424-3266,deborah.nguyen@email.com,Centene,XYZ195325,GRP1771,New,,"Peanuts, shellfish",Dr. Michael Rodriguez
+PAT1009,Emily,Ramirez,Emily Ramirez,02/13/1982,(590) 810-8668,emily.ramirez@email.com,Centene,XYZ680099,GRP1188,New,,Seasonal pollen,Dr. Emily Johnson
+PAT1010,Dorothy,Adams,Dorothy Adams,02/10/1965,(645) 361-8433,dorothy.adams@email.com,Blue Cross Blue Shield,DEF854639,GRP5315,New,,"Cats, dogs",Dr. Sarah Chen
+PAT1011,Kenneth,Martin,Kenneth Martin,11/17/1997,(823) 403-3504,kenneth.martin@email.com,Humana,ABC665579,GRP9689,New,,"Cats, dogs",Dr. Emily Johnson
+PAT1012,Donna,Johnson,Donna Johnson,06/27/1951,(514) 445-1949,donna.johnson@email.com,UnitedHealth,DEF182582,GRP2403,Returning,07/02/2025,"Food allergies - eggs, milk",Dr. Michael Rodriguez
+PAT1013,William,Nelson,William Nelson,09/06/1974,(471) 740-7932,william.nelson@email.com,UnitedHealth,DEF891952,GRP4295,Returning,01/14/2025,Seasonal pollen,Dr. Emily Johnson
+PAT1014,Mark,King,Mark King,02/08/1972,(430) 265-6539,mark.king@email.com,Blue Cross Blue Shield,DEF680828,GRP4770,New,,No known allergies,Dr. Sarah Chen
+PAT1015,Kimberly,Green,Kimberly Green,04/03/1947,(232) 538-2160,kimberly.green@email.com,Centene,ABC392004,GRP8953,New,,"Cats, dogs",Dr. Michael Rodriguez
+PAT1016,George,Torres,George Torres,08/08/1980,(684) 616-4119,george.torres@email.com,Aetna,ABC790993,GRP8062,Returning,01/02/2025,"Latex, penicillin",Dr. Robert Kim
+PAT1017,George,Brown,George Brown,11/21/1987,(300) 262-7596,george.brown@email.com,Humana,ABC360735,GRP4139,New,,"Cats, dogs",Dr. Robert Kim
+PAT1018,William,Ramirez,William Ramirez,05/15/1955,(455) 277-8260,william.ramirez@email.com,Centene,ABC153045,GRP9856,New,,No known allergies,Dr. Michael Rodriguez
+PAT1019,David,Clark,David Clark,08/07/1975,(610) 260-3697,david.clark@email.com,Anthem,ABC509386,GRP5345,Returning,03/13/2025,"Latex, penicillin",Dr. Robert Kim
+PAT1020,Elizabeth,Gonzalez,Elizabeth Gonzalez,04/02/1962,(793) 953-9883,elizabeth.gonzalez@email.com,Blue Cross Blue Shield,DEF428838,GRP1936,New,,"Cats, dogs",Dr. Robert Kim
+PAT1021,Steven,King,Steven King,01/17/1954,(282) 390-2122,steven.king@email.com,Independence Blue Cross,ABC808011,GRP4853,Returning,06/06/2025,"Cats, dogs",Dr. Michael Rodriguez
+PAT1022,Sharon,Hill,Sharon Hill,10/03/1946,(629) 873-9565,sharon.hill@email.com,Humana,XYZ314181,GRP6147,New,,"Dust mites, pollen",Dr. Robert Kim
+PAT1023,William,Nelson,William Nelson,05/15/1985,(523) 969-2188,william.nelson@email.com,Blue Cross Blue Shield,XYZ751332,GRP2638,New,,"Cats, dogs",Dr. Michael Rodriguez
+PAT1024,Steven,Taylor,Steven Taylor,06/03/1952,(450) 578-5669,steven.taylor@email.com,Cigna,XYZ974244,GRP9900,Returning,09/27/2024,"Food allergies - eggs, milk",Dr. Sarah Chen
+PAT1025,Kevin,Scott,Kevin Scott,11/04/1963,(337) 470-2891,kevin.scott@email.com,Aetna,DEF680097,GRP3546,Returning,03/15/2025,"Cats, dogs",Dr. Michael Rodriguez
+PAT1026,Kimberly,Perez,Kimberly Perez,11/21/1957,(470) 717-9004,kimberly.perez@email.com,Kaiser Permanente,ABC196781,GRP7939,Returning,07/15/2025,No known allergies,Dr. Emily Johnson
+PAT1027,Dorothy,Rodriguez,Dorothy Rodriguez,05/06/1984,(959) 652-8007,dorothy.rodriguez@email.com,Centene,ABC217308,GRP2232,New,,"Cats, dogs",Dr. Sarah Chen
+PAT1028,Lisa,Nguyen,Lisa Nguyen,03/14/1979,(330) 242-6050,lisa.nguyen@email.com,Humana,ABC475190,GRP4441,New,,Seasonal pollen,Dr. Sarah Chen
+PAT1029,Daniel,Roberts,Daniel Roberts,07/20/1979,(967) 358-4878,daniel.roberts@email.com,Cigna,ABC532322,GRP1406,New,,Seasonal pollen,Dr. Emily Johnson
+PAT1030,Anthony,Nelson,Anthony Nelson,12/26/1999,(454) 473-3608,anthony.nelson@email.com,Aetna,XYZ140605,GRP8711,New,,"Peanuts, shellfish",Dr. Robert Kim
+PAT1031,Daniel,Martin,Daniel Martin,04/08/1996,(224) 875-4164,daniel.martin@email.com,Anthem,XYZ392136,GRP2137,Returning,02/08/2025,Seasonal pollen,Dr. Robert Kim
+PAT1032,Emily,Wright,Emily Wright,01/04/1965,(467) 382-5349,emily.wright@email.com,Blue Cross Blue Shield,ABC725550,GRP8119,Returning,02/27/2025,"Latex, penicillin",Dr. Sarah Chen
+PAT1033,Matthew,Torres,Matthew Torres,05/02/1956,(925) 646-1027,matthew.torres@email.com,Centene,DEF820221,GRP4228,Returning,12/29/2024,No known allergies,Dr. Emily Johnson
+PAT1034,Michelle,Lee,Michelle Lee,02/24/1986,(507) 719-6067,michelle.lee@email.com,Anthem,XYZ521947,GRP5844,New,,"Peanuts, shellfish",Dr. Robert Kim
+PAT1035,Kevin,Harris,Kevin Harris,12/06/1987,(830) 782-5930,kevin.harris@email.com,Anthem,DEF974224,GRP1006,Returning,03/13/2025,"Peanuts, shellfish",Dr. Robert Kim
+PAT1036,Sharon,Hill,Sharon Hill,06/15/1985,(652) 652-4501,sharon.hill@email.com,Centene,XYZ932291,GRP3780,New,,"Dust mites, pollen",Dr. Emily Johnson
+PAT1037,Jennifer,Carter,Jennifer Carter,11/10/1959,(430) 403-3414,jennifer.carter@email.com,Blue Cross Blue Shield,ABC356736,GRP8784,New,,"Latex, penicillin",Dr. Robert Kim
+PAT1038,Kenneth,Torres,Kenneth Torres,12/23/1956,(593) 706-7547,kenneth.torres@email.com,UnitedHealth,ABC787926,GRP1090,New,,"Food allergies - eggs, milk",Dr. Robert Kim
+PAT1039,Joseph,Lopez,Joseph Lopez,12/17/1995,(675) 251-5082,joseph.lopez@email.com,Aetna,XYZ239816,GRP8612,Returning,12/23/2024,"Cats, dogs",Dr. Robert Kim
+PAT1040,Ruth,Lewis,Ruth Lewis,03/24/2001,(686) 660-5246,ruth.lewis@email.com,UnitedHealth,DEF390782,GRP9540,Returning,09/20/2024,"Peanuts, shellfish",Dr. Emily Johnson
+PAT1041,Mark,Jones,Mark Jones,05/08/1989,(478) 543-6238,mark.jones@email.com,Centene,ABC245095,GRP3471,New,,"Latex, penicillin",Dr. Michael Rodriguez
+PAT1042,Kimberly,Wilson,Kimberly Wilson,07/14/1948,(538) 755-8633,kimberly.wilson@email.com,Anthem,ABC316881,GRP7883,Returning,10/11/2024,Seasonal pollen,Dr. Sarah Chen
+PAT1043,Edward,Torres,Edward Torres,08/01/1968,(560) 505-7389,edward.torres@email.com,Anthem,DEF883826,GRP9947,New,,"Latex, penicillin",Dr. Michael Rodriguez
+PAT1044,Sarah,Ramirez,Sarah Ramirez,01/13/1975,(544) 884-7624,sarah.ramirez@email.com,Cigna,XYZ233827,GRP9751,New,,"Latex, penicillin",Dr. Sarah Chen
+PAT1045,Jennifer,Adams,Jennifer Adams,03/28/1971,(672) 386-1823,jennifer.adams@email.com,Kaiser Permanente,XYZ443254,GRP4467,Returning,02/20/2025,"Dust mites, pollen",Dr. Robert Kim
+PAT1046,Sarah,Carter,Sarah Carter,07/09/2004,(283) 681-1317,sarah.carter@email.com,Centene,ABC466960,GRP4673,New,,"Food allergies - eggs, milk",Dr. Sarah Chen
+PAT1047,Edward,Johnson,Edward Johnson,04/07/2004,(220) 836-3496,edward.johnson@email.com,UnitedHealth,ABC596564,GRP2874,New,,"Latex, penicillin",Dr. Emily Johnson
+PAT1048,Dorothy,White,Dorothy White,10/20/1954,(965) 935-2876,dorothy.white@email.com,Cigna,XYZ213349,GRP1420,Returning,10/16/2024,Seasonal pollen,Dr. Robert Kim
+PAT1049,Betty,Rivera,Betty Rivera,02/19/1956,(907) 842-4978,betty.rivera@email.com,Aetna,DEF910004,GRP5941,New,,"Food allergies - eggs, milk",Dr. Sarah Chen
