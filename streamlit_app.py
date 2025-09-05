@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for medical/hospital theme with FIXED CONTRAST
+# Custom CSS for medical/hospital theme
 st.markdown("""
 <style>
     /* Import medical fonts */
@@ -75,15 +75,6 @@ st.markdown("""
     }
 
     /* Dashboard cards */
-    .dashboard-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 1rem;
-    }
-
     .status-card {
         background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         color: white !important;
@@ -106,7 +97,7 @@ st.markdown("""
         color: rgba(255,255,255,0.95) !important;
     }
 
-    /* Conversation styling - FIXED CONTRAST */
+    /* Conversation styling */
     .chat-container {
         background: white;
         border-radius: 12px;
@@ -178,7 +169,7 @@ st.markdown("""
         gap: 0.5rem;
     }
 
-    /* Alert boxes with better contrast */
+    /* Alert boxes */
     .success-alert {
         background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
         border-left: 4px solid #059669;
@@ -221,88 +212,74 @@ st.markdown("""
         color: #d97706 !important;
     }
 
-    /* Appointment details - FIXED */
+    /* FIXED: Appointment Card Styling */
     .appointment-card {
         background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
         border: 2px solid #0ea5e9;
         border-radius: 16px;
         padding: 2rem;
-        margin: 1rem 0;
+        margin: 2rem 0;
         box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
         color: #0f172a !important;
     }
 
     .appointment-header {
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid #0ea5e9;
+        border-bottom: 2px solid #0ea5e9;
     }
 
     .appointment-id {
         background: #0ea5e9;
         color: white !important;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
         font-weight: 600;
         display: inline-block;
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
         font-family: 'Inter', sans-serif;
+        font-size: 1rem;
     }
 
-    .appointment-details-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        margin-top: 1.5rem;
-    }
-
-    .appointment-detail-item {
-        margin: 0.75rem 0;
-        color: #0f172a !important;
-        font-weight: 500;
-    }
-
-    .appointment-detail-item strong {
-        color: #1e40af !important;
-    }
-
-    .appointment-card h3 {
+    .appointment-title {
         color: #0ea5e9 !important;
         margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
     }
 
-    /* Reminder system */
-    .reminder-system {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-        margin: 2rem 0;
+    .appointment-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        margin-top: 2rem;
     }
 
-    .reminder-card {
-        background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-        border-left: 4px solid #d97706;
-        padding: 1.5rem;
-        border-radius: 8px;
+    .appointment-item {
+        display: flex;
+        align-items: center;
         margin: 1rem 0;
-        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1);
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        border-left: 3px solid #0ea5e9;
+    }
+
+    .appointment-icon {
+        font-size: 1.2rem;
+        margin-right: 0.75rem;
+    }
+
+    .appointment-label {
+        font-weight: 600;
+        color: #1e40af !important;
+        margin-right: 0.5rem;
+    }
+
+    .appointment-value {
         color: #0f172a !important;
-    }
-
-    .reminder-card h4 {
-        color: #d97706 !important;
-        margin-top: 0;
-    }
-
-    .reminder-card p {
-        color: #0f172a !important;
-    }
-
-    .reminder-card strong {
-        color: #d97706 !important;
+        font-weight: 500;
     }
 
     /* Metrics styling */
@@ -348,14 +325,46 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
     }
 
-    /* Success button */
     .success-button > button {
         background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
         color: white !important;
     }
 
-    /* Email preview styling */
+    /* Reminder cards */
+    .reminder-system {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin: 2rem 0;
+    }
+
+    .reminder-card {
+        background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+        border-left: 4px solid #d97706;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1);
+        color: #0f172a !important;
+    }
+
+    .reminder-card h4 {
+        color: #d97706 !important;
+        margin-top: 0;
+    }
+
+    .reminder-card p {
+        color: #0f172a !important;
+    }
+
+    .reminder-card strong {
+        color: #d97706 !important;
+    }
+
+    /* Email preview */
     .email-preview {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
@@ -407,7 +416,7 @@ st.markdown("""
         color: #dc2626 !important;
     }
 
-    /* Right column info styling */
+    /* Info panel */
     .info-panel {
         background: white;
         border-radius: 12px;
@@ -433,7 +442,7 @@ st.markdown("""
         color: #1e40af !important;
     }
 
-    /* Success completion styling */
+    /* Completion card */
     .completion-card {
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
         color: white !important;
@@ -477,7 +486,7 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Responsive design */
+    /* Mobile responsive */
     @media (max-width: 768px) {
         .medical-header h1 {
             font-size: 2rem;
@@ -486,7 +495,7 @@ st.markdown("""
             padding-left: 1rem;
             padding-right: 1rem;
         }
-        .appointment-details-grid {
+        .appointment-grid {
             grid-template-columns: 1fr;
             gap: 1rem;
         }
@@ -588,6 +597,67 @@ To get started, I'll need some basic information:"""
         }
 
         return booking_data
+
+def display_appointment_card(appointment):
+    """FIXED: Function to properly display appointment details as HTML, not code"""
+    # Create the HTML as a single string - NO CODE BLOCKS
+    appointment_html = f"""
+<div class="appointment-card">
+    <div class="appointment-header">
+        <div class="appointment-id">Appointment ID: {appointment['appointment_id']}</div>
+        <h3 class="appointment-title">Your Appointment Details</h3>
+    </div>
+    <div class="appointment-grid">
+        <div>
+            <div class="appointment-item">
+                <span class="appointment-icon">👤</span>
+                <span class="appointment-label">Patient:</span>
+                <span class="appointment-value">{appointment['patient_name']}</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">👨‍⚕️</span>
+                <span class="appointment-label">Doctor:</span>
+                <span class="appointment-value">{appointment['doctor']}</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">📅</span>
+                <span class="appointment-label">Date:</span>
+                <span class="appointment-value">{appointment['date']}</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">⏰</span>
+                <span class="appointment-label">Time:</span>
+                <span class="appointment-value">{appointment['time']}</span>
+            </div>
+        </div>
+        <div>
+            <div class="appointment-item">
+                <span class="appointment-icon">⏱️</span>
+                <span class="appointment-label">Duration:</span>
+                <span class="appointment-value">{appointment['duration']} minutes</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">🏥</span>
+                <span class="appointment-label">Location:</span>
+                <span class="appointment-value">{appointment['location']}</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">📋</span>
+                <span class="appointment-label">Type:</span>
+                <span class="appointment-value">{appointment['patient_type']}</span>
+            </div>
+            <div class="appointment-item">
+                <span class="appointment-icon">✅</span>
+                <span class="appointment-label">Status:</span>
+                <span class="appointment-value">{appointment['status']}</span>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+
+    # CRITICAL: Use st.markdown with unsafe_allow_html=True - NO OTHER METHOD
+    st.markdown(appointment_html, unsafe_allow_html=True)
 
 def main():
     # Medical Header
@@ -754,7 +824,6 @@ def main():
                 col_a, col_b = st.columns(2)
                 with col_a:
                     first_name = st.text_input("First Name *", key="first_name", placeholder="Enter your first name")
-                    # FIXED: Date of birth range from 1960 to current year
                     dob = st.date_input(
                         "Date of Birth *", 
                         key="dob", 
@@ -922,46 +991,8 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-            # FIXED: Appointment details card with proper formatting
-            st.markdown(f"""
-            <div class="appointment-card">
-                <div class="appointment-header">
-                    <div class="appointment-id">Appointment ID: {appointment['appointment_id']}</div>
-                    <h3>Your Appointment Details</h3>
-                </div>
-
-                <div class="appointment-details-grid">
-                    <div>
-                        <div class="appointment-detail-item">
-                            <strong>👤 Patient:</strong> {appointment['patient_name']}
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>👨‍⚕️ Doctor:</strong> {appointment['doctor']}
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>📅 Date:</strong> {appointment['date']}
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>⏰ Time:</strong> {appointment['time']}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="appointment-detail-item">
-                            <strong>⏱️ Duration:</strong> {appointment['duration']} minutes
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>🏥 Location:</strong> {appointment['location']}
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>📋 Type:</strong> {appointment['patient_type']}
-                        </div>
-                        <div class="appointment-detail-item">
-                            <strong>✅ Status:</strong> {appointment['status']}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # FIXED: Use the dedicated function to display appointment card
+            display_appointment_card(appointment)
 
             # Form distribution section
             st.markdown("""
