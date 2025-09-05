@@ -1,109 +1,31 @@
 # app.py
-# --------------------------------------------------------------------------------------
-# MediCare AI Scheduling Agent - Full Featured Streamlit App (~1000 lines target)
-# --------------------------------------------------------------------------------------
-# Highlights:
-# - Modern UI with custom CSS and accessible components
-# - SQLite persistence: patients, doctors, appointments, reminders
-# - End-to-end scheduling: create, search, reschedule, cancel, confirm
-# - Role-like sections: Home, Patients, Appointments, Doctors, Analytics, Settings
-# - Smart availability generator (weekdays, lunch breaks, slot length by appt type)
-# - Email/SMS reminder simulation + schedule export
-# - Import/Export CSV, XLSX
-# - Conversation assistant mock (intent recognition: schedule/reschedule/cancel)
-# - Defensive coding, form validation, helpful empty states
-# --------------------------------------------------------------------------------------
+# MediCare AI Scheduling Agent - Single-file production-style Streamlit app
+# Implements the intern case-study MVP: patient greeting, lookup, scheduling,
+# insurance collection, confirmation, intake form distribution, reminders, exports.
+#
+# Save as app.py and run: streamlit run app.py
+# Requires: streamlit, pandas, sqlite3, xlsxwriter (optional for Excel export)
+# The script will create medicare.db and demo data on first run.
 
 import streamlit as st
 import pandas as pd
 import sqlite3
 import os
-from datetime import datetime, timedelta, time, date
+import io
 import random
 import string
-from typing import List, Dict, Tuple, Optional
-import io
 import json
-import math
+from datetime import datetime, timedelta, date, time
+from typing import List, Optional
 
-# --------------------------------------------------------------------------------------
-# Page Config and Global Styles
-# --------------------------------------------------------------------------------------
-
-st.set_page_config(
-    page_title="MediCare AI Scheduling Agent",
-    page_icon="🏥",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# --------------------------------------------------------------------------------------
-# CSS: modern medical theme with accessible contrast and responsive spacing
-# --------------------------------------------------------------------------------------
-
-MEDICAL_CSS = """
-<style>
-:root{
-  --mc-primary:#1e40af;
-  --mc-primary-2:#3b82f6;
-  --mc-green:#059669;
-  --mc-green-2:#10b981;
-  --mc-orange:#d97706;
-  --mc-red:#dc2626;
-  --mc-bg:#f8fafc;
-  --mc-surface:#ffffff;
-  --mc-muted:#64748b;
-  --mc-border:#e2e8f0;
-  --mc-blue-soft:#e0f2fe;
-  --mc-green-soft:#d1fae5;
-  --mc-orange-soft:#fef3c7;
-  --mc-blue-soft-2:#dbeafe;
-  --mc-shadow:0 8px 24px rgba(2,6,23,.06);
-}
-* { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-.main > div { padding-top: 1rem !important; }
-.mh { background: linear-gradient(135deg, var(--mc-primary) 0%, var(--mc-primary-2) 100%);
-      color:#fff; padding:1.25rem 1.25rem; border-radius: 0 0 18px 18px; 
-      margin:-2rem -2rem 1.25rem -2rem; box-shadow: var(--mc-shadow); }
-.mh h1{ margin:0; font-weight:800; letter-spacing:.2px; text-shadow:0 1px 1px rgba(0,0,0,0.15);}
-.mh p{ opacity:.95; margin:.25rem 0 0 0; }
-.section{ background:var(--mc-surface); border:1px solid var(--mc-border); border-radius:14px;
-          padding:1rem 1.25rem; box-shadow: var(--mc-shadow); }
-.section-title{ color:var(--mc-primary); font-weight:700; margin:0 0 .5rem 0; }
-.badge{ display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.25rem .6rem; font-size:.85rem; border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; }
-.kpi{ text-align:center; background:var(--mc-surface); border:1px solid var(--mc-border); border-radius:14px; padding:1rem; }
-.kpi .num{ font-weight:800; font-size:1.8rem; color:var(--mc-primary); }
-.kpi .lbl{ color:var(--mc-muted); font-weight:600; }
-.card{ background:#fff; border:1px solid var(--mc-border); border-radius:14px; padding:1rem; box-shadow:var(--mc-shadow); }
-.callout-info{ background:var(--mc-blue-soft-2); border-left:4px solid var(--mc-primary); padding:.8rem 1rem; border-radius:.5rem; }
-.callout-warn{ background:var(--mc-orange-soft); border-left:4px solid var(--mc-orange); padding:.8rem 1rem; border-radius:.5rem; }
-.callout-ok{ background:var(--mc-green-soft); border-left:4px solid var(--mc-green); padding:.8rem 1rem; border-radius:.5rem; }
-.btn-primary button{ background: linear-gradient(135deg, var(--mc-primary) 0%, var(--mc-primary-2) 100%) !important; color:#fff !important; border:none; }
-.btn-success button{ background: linear-gradient(135deg, var(--mc-green) 0%, var(--mc-green-2) 100%) !important; color:#fff !important; border:none; }
-.btn-danger button{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; color:#fff !important; border:none; }
-.small-muted{ color:var(--mc-muted); font-size:.9rem;}
-.hr{ height:1px; background:var(--mc-border); margin:.75rem 0;}
-.tbl-note{ font-size:.85rem; color:var(--mc-muted);}
-.search-row{ display:flex; flex-wrap:wrap; gap:.5rem; }
-.pill{ padding:.25rem .6rem; border:1px solid var(--mc-border); border-radius:999px; background:#fff; font-size:.82rem; }
-.stTextInput>div>div>input, .stSelectbox>div>div>div{ border-radius:10px !important; }
-.stDateInput>div>div>input{ border-radius:10px !important; }
-.stDataFrame{ border-radius:10px; overflow:hidden; border:1px solid var(--mc-border); box-shadow:var(--mc-shadow);}
-.table-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;}
-.app-id{ display:inline-block; background:#0ea5e9; color:#fff; border-radius:999px; padding:.25rem .6rem; font-weight:700;}
-.label{ font-weight:700; color:#0f172a;}
-.footer-note{ opacity:.7; font-size:.9rem;}
-.stDownloadButton > button { border-radius:10px !important; }
-.st-emotion-cache-13ln4jf, .st-emotion-cache-1kyxreq { padding-top: 0 !important; } /* container top paddings (Streamlit minor versions vary) */
-</style>
-"""
-st.markdown(MEDICAL_CSS, unsafe_allow_html=True)
-
-# --------------------------------------------------------------------------------------
-# Utilities
-# --------------------------------------------------------------------------------------
-
+# -----------------------------
+# Configuration / Constants
+# -----------------------------
 DB_PATH = "medicare.db"
+PATIENT_CSV_PATH = "patients_database.csv"  # optional; will be generated if not present
+DOCTOR_SCHEDULE_XLSX = "doctor_schedules.xlsx"  # optional; will be generated if not present
+INTAKE_FORM_PDF = "/mnt/data/New Patient Intake Form.pdf"  # uploaded by user
+CASE_STUDY_PDF = "/mnt/data/Data Science Intern - RagaAI.pdf"  # uploaded by user (reference)
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 
@@ -113,971 +35,1270 @@ APPT_TYPES = {
     "Allergy Testing (45m)": {"minutes": 45},
 }
 
-DOCTOR_SPECIALTIES = [
-    "Allergy & Immunology",
-    "Pulmonology",
-    "Dermatology",
-    "Pediatrics (Allergy)",
+DOCTOR_SAMPLE = [
+    {
+        "doctor_id": "DOC1001",
+        "full_name": "Dr. Sarah Chen",
+        "specialty": "Allergy & Immunology",
+        "weekday_availability": {"Mon": True, "Tue": True, "Wed": True, "Thu": True, "Fri": True},
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "lunch_start": "12:30",
+        "lunch_end": "13:30",
+        "location": "Main Clinic - Downtown",
+    },
+    {
+        "doctor_id": "DOC1002",
+        "full_name": "Dr. Michael Rodriguez",
+        "specialty": "Pulmonology",
+        "weekday_availability": {"Mon": True, "Tue": False, "Wed": True, "Thu": False, "Fri": True},
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "lunch_start": "12:30",
+        "lunch_end": "13:30",
+        "location": "North Branch",
+    },
+    {
+        "doctor_id": "DOC1003",
+        "full_name": "Dr. Emily Johnson",
+        "specialty": "Pediatrics (Allergy)",
+        "weekday_availability": {"Mon": False, "Tue": True, "Wed": True, "Thu": True, "Fri": False},
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "lunch_start": "12:30",
+        "lunch_end": "13:30",
+        "location": "South Branch",
+    },
+    {
+        "doctor_id": "DOC1004",
+        "full_name": "Dr. Robert Kim",
+        "specialty": "Dermatology",
+        "weekday_availability": {"Mon": True, "Tue": True, "Wed": False, "Thu": True, "Fri": True},
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "lunch_start": "12:30",
+        "lunch_end": "13:30",
+        "location": "West Side Clinic",
+    },
 ]
 
-WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-DEFAULT_WORK_START = time(9, 0)
-DEFAULT_WORK_END = time(17, 0)
-DEFAULT_LUNCH_START = time(12, 30)
-DEFAULT_LUNCH_END = time(13, 30)
+# -----------------------------
+# Streamlit Page Config + CSS
+# -----------------------------
+st.set_page_config(page_title="MediCare AI Scheduling Agent", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
-def gen_id(prefix: str, size: int = 6) -> str:
-    return f"{prefix}{''.join(random.choices(string.digits, k=size))}"
+st.title("🏥 MediCare AI Scheduling Agent")
+st.caption("Smart appointment scheduling for allergy & wellness care — demo / case-study implementation")
 
-def to_date(s: str) -> date:
-    return datetime.strptime(s, "%Y-%m-%d").date()
+# Custom CSS for improved UI
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    .css-1d391kg { background-color: #f8fafc; } /* sidebar */
+    .stApp { font-family: Inter, sans-serif; background-color: #f8fafc; }
+    .mh { background: linear-gradient(135deg,#1e40af 0%,#3b82f6 100%); color: #fff; padding: 1.1rem; border-radius: 8px; margin-bottom: 1rem;}
+    .section { background: #fff; border-radius: 10px; padding: 1rem; border: 1px solid #e6eef8; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); margin-bottom: 1rem;}
+    .card { background: #fff; border-radius: 10px; padding: 0.8rem; border: 1px solid #edf2f7; box-shadow: 0 6px 18px rgba(2,6,23,.03); margin-bottom: .75rem;}
+    .pill { display:inline-block; padding: .25rem .6rem; border-radius:999px; background:#e6eef8; color:#0f172a; font-weight:600; }
+    .small-muted{ font-size: .9rem; color:#64748b; }
+    .app-id{ background:#0ea5e9; color:#fff; padding:.25rem .6rem; border-radius:8px; font-weight:700; }
+    .tbl-note{ font-size:.9rem; color:#64748b; }
+    .hr{ height:1px; background:#e6eef8; margin: .75rem 0; border-radius:4px;}
+    .stButton>button { border-radius:8px; padding: .5rem .9rem; font-weight:700;}
+    .stDownloadButton>button { border-radius:8px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-def to_datetime(s: str) -> datetime:
-    try:
-        return datetime.strptime(s, "%Y-%m-%d %H:%M")
-    except:
-        return datetime.strptime(s, "%Y-%m-%d")
+# -----------------------------
+# Utility Functions
+# -----------------------------
 
-def safe_int(v, fallback=0):
-    try: return int(v)
-    except: return fallback
 
-def safe_str(v):
-    return "" if v is None else str(v)
+def gen_id(prefix: str = "ID", digits: int = 6) -> str:
+    return f"{prefix}{''.join(random.choices(string.digits, k=digits))}"
 
-def df_empty(columns: List[str]) -> pd.DataFrame:
-    return pd.DataFrame([], columns=columns)
 
-def read_df(cur, query: str, params: tuple = ()) -> pd.DataFrame:
-    cur.execute(query, params)
-    rows = cur.fetchall()
-    cols = [c[0] for c in cur.description] if cur.description else []
-    return pd.DataFrame(rows, columns=cols)
-
-def now_str():
+def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# --------------------------------------------------------------------------------------
-# Database Setup
-# --------------------------------------------------------------------------------------
 
+def ensure_folder(path: str):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
+# -----------------------------
+# Database: SQLite init and helpers
+# -----------------------------
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
-    with get_conn() as conn:
-        cur = conn.cursor()
-        # patients
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS patients(
-            patient_id TEXT PRIMARY KEY,
-            first_name TEXT,
-            last_name TEXT,
-            full_name TEXT,
-            dob TEXT,
-            phone TEXT,
-            email TEXT,
-            insurance_company TEXT,
-            member_id TEXT,
-            group_number TEXT,
-            patient_type TEXT,
-            last_visit TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        );
-        """)
-        # doctors
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS doctors(
-            doctor_id TEXT PRIMARY KEY,
-            full_name TEXT,
-            specialty TEXT,
-            weekday_availability TEXT, -- JSON of {"Mon":true,...}
-            start_time TEXT,
-            end_time TEXT,
-            lunch_start TEXT,
-            lunch_end TEXT,
-            location TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        );
-        """)
-        # appointments
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS appointments(
-            appointment_id TEXT PRIMARY KEY,
-            patient_id TEXT,
-            doctor_id TEXT,
-            doctor_name TEXT,
-            date TEXT, -- YYYY-MM-DD
-            time TEXT, -- HH:MM
-            duration INTEGER,
-            appt_type TEXT,
-            location TEXT,
-            status TEXT, -- Confirmed, Cancelled
-            booking_time TEXT,
-            notes TEXT,
-            FOREIGN KEY (patient_id) REFERENCES patients(patient_id),
-            FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id)
-        );
-        """)
-        # reminders
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS reminders(
-            reminder_id TEXT PRIMARY KEY,
-            appointment_id TEXT,
-            remind_at TEXT, -- YYYY-MM-DD HH:MM
-            channel TEXT, -- Email/SMS
-            message TEXT,
-            state TEXT,   -- Scheduled/Sent/Cancelled
-            created_at TEXT,
-            FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id)
-        );
-        """)
-        conn.commit()
+    conn = get_conn()
+    cur = conn.cursor()
+    # patients
+    cur.execute(
+        """
+    CREATE TABLE IF NOT EXISTS patients(
+        patient_id TEXT PRIMARY KEY,
+        first_name TEXT,
+        last_name TEXT,
+        full_name TEXT,
+        dob TEXT,
+        phone TEXT,
+        email TEXT,
+        insurance_company TEXT,
+        member_id TEXT,
+        group_number TEXT,
+        patient_type TEXT,
+        last_visit TEXT,
+        created_at TEXT,
+        updated_at TEXT
+    );
+    """
+    )
+    # doctors
+    cur.execute(
+        """
+    CREATE TABLE IF NOT EXISTS doctors(
+        doctor_id TEXT PRIMARY KEY,
+        full_name TEXT,
+        specialty TEXT,
+        weekday_availability TEXT, -- JSON
+        start_time TEXT,
+        end_time TEXT,
+        lunch_start TEXT,
+        lunch_end TEXT,
+        location TEXT,
+        created_at TEXT,
+        updated_at TEXT
+    );
+    """
+    )
+    # appointments
+    cur.execute(
+        """
+    CREATE TABLE IF NOT EXISTS appointments(
+        appointment_id TEXT PRIMARY KEY,
+        patient_id TEXT,
+        doctor_id TEXT,
+        doctor_name TEXT,
+        date TEXT, -- YYYY-MM-DD
+        time TEXT, -- HH:MM
+        duration INTEGER,
+        appt_type TEXT,
+        location TEXT,
+        status TEXT,
+        booking_time TEXT,
+        notes TEXT
+    );
+    """
+    )
+    # reminders
+    cur.execute(
+        """
+    CREATE TABLE IF NOT EXISTS reminders(
+        reminder_id TEXT PRIMARY KEY,
+        appointment_id TEXT,
+        remind_at TEXT, -- YYYY-MM-DD HH:MM
+        channel TEXT,
+        message TEXT,
+        state TEXT,
+        created_at TEXT
+    );
+    """
+    )
+    conn.commit()
+    conn.close()
 
-def seed_demo_data():
-    with get_conn() as conn:
-        cur = conn.cursor()
-        # Seed doctors if empty
-        cur.execute("SELECT COUNT(*) AS c FROM doctors")
-        if cur.fetchone()["c"] == 0:
-            doctors = [
-                ("DOC1001","Dr. Sarah Chen","Allergy & Immunology", 
-                 json.dumps({"Mon":True,"Tue":True,"Wed":True,"Thu":True,"Fri":True}),
-                 "09:00","17:00","12:30","13:30","Main Clinic - Downtown"),
-                ("DOC1002","Dr. Michael Rodriguez","Pulmonology", 
-                 json.dumps({"Mon":True,"Tue":False,"Wed":True,"Thu":False,"Fri":True}),
-                 "09:00","17:00","12:30","13:30","North Branch"),
-                ("DOC1003","Dr. Emily Johnson","Pediatrics (Allergy)", 
-                 json.dumps({"Mon":False,"Tue":True,"Wed":True,"Thu":True,"Fri":False}),
-                 "09:00","17:00","12:30","13:30","South Branch"),
-                ("DOC1004","Dr. Robert Kim","Dermatology", 
-                 json.dumps({"Mon":True,"Tue":True,"Wed":False,"Thu":True,"Fri":True}),
-                 "09:00","17:00","12:30","13:30","West Side Clinic"),
-            ]
-            for d in doctors:
-                cur.execute("""
-                    INSERT INTO doctors(doctor_id, full_name, specialty, weekday_availability,
-                    start_time, end_time, lunch_start, lunch_end, location, created_at, updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                """, (*d, now_str(), now_str()))
-        # Seed a couple of demo patients
-        cur.execute("SELECT COUNT(*) AS c FROM patients")
-        if cur.fetchone()["c"] == 0:
-            demo_patients = [
-                ("PAT1001","Kenneth","Davis","Kenneth Davis","1991-03-12","(450) 428-3286","ken.davis@mail.com","Blue Cross","ABC123","GRP5678","New",None, now_str(), now_str()),
-                ("PAT1002","Betty","Moore","Betty Moore","1988-07-21","(935) 522-4483","betty.moore@mail.com","Aetna","M99810","AET-22","Returning","2024-04-10", now_str(), now_str()),
-                ("PAT1003","Joseph","Lewis","Joseph Lewis","1995-12-02","(206) 977-3615","joseph.lewis@mail.com","United Health","UH7782","UHG-88","New",None, now_str(), now_str()),
-            ]
-            cur.executemany("""
-                INSERT INTO patients(patient_id, first_name, last_name, full_name, dob, phone, email,
+
+# -----------------------------
+# Seed / Demo Data Generation
+# -----------------------------
+def seed_demo_patients(num: int = 50):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(1) AS c FROM patients")
+    if cur.fetchone()["c"] >= num:
+        conn.close()
+        return
+
+    # generate synthetic patients
+    first_names = ["Alex", "Sam", "Taylor", "Jordan", "Casey", "Riley", "Jamie", "Morgan", "Chris", "Pat"]
+    last_names = ["Sharma", "Patel", "Khan", "Gupta", "Iyer", "Mehta", "Singh", "Rao", "Nair", "Das"]
+    domains = ["example.com", "mail.com", "testmail.org"]
+
+    for i in range(num):
+        fn = random.choice(first_names)
+        ln = random.choice(last_names)
+        full = f"{fn} {ln}"
+        pid = f"PAT{1000 + i}"
+        dob = (date.today() - timedelta(days=random.randint(18 * 365, 70 * 365))).strftime("%Y-%m-%d")
+        phone = f"+1-555-{random.randint(100,999)}-{random.randint(1000,9999)}"
+        email = f"{fn.lower()}.{ln.lower()}{i}@{random.choice(domains)}"
+        ptype = random.choice(["New", "Returning"])
+        last_visit = (date.today() - timedelta(days=random.randint(1, 365))).strftime("%Y-%m-%d") if ptype == "Returning" else None
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO patients(patient_id, first_name, last_name, full_name, dob, phone, email,
                 insurance_company, member_id, group_number, patient_type, last_visit, created_at, updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """, demo_patients)
-        conn.commit()
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                pid,
+                fn,
+                ln,
+                full,
+                dob,
+                phone,
+                email,
+                random.choice(["Blue Cross", "Aetna", "United Health", "MedLife", "Not provided"]),
+                "".join(random.choices(string.ascii_uppercase + string.digits, k=8)),
+                "GRP" + str(random.randint(100, 999)),
+                ptype,
+                last_visit,
+                now_str(),
+                now_str(),
+            ),
+        )
 
-init_db()
-seed_demo_data()
+    conn.commit()
+    conn.close()
 
-# --------------------------------------------------------------------------------------
-# Data Access Layer
-# --------------------------------------------------------------------------------------
 
+def seed_demo_doctors():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(1) AS c FROM doctors")
+    if cur.fetchone()["c"] > 0:
+        conn.close()
+        return
+    for d in DOCTOR_SAMPLE:
+        cur.execute(
+            """
+        INSERT OR IGNORE INTO doctors(doctor_id, full_name, specialty, weekday_availability,
+            start_time, end_time, lunch_start, lunch_end, location, created_at, updated_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """,
+            (
+                d["doctor_id"],
+                d["full_name"],
+                d["specialty"],
+                json.dumps(d["weekday_availability"]),
+                d["start_time"],
+                d["end_time"],
+                d["lunch_start"],
+                d["lunch_end"],
+                d["location"],
+                now_str(),
+                now_str(),
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+
+# -----------------------------
+# Optional: create doctor_schedules.xlsx if not present (helps the assignment expectation)
+# -----------------------------
+def ensure_doctor_schedule_xlsx():
+    if os.path.exists(DOCTOR_SCHEDULE_XLSX):
+        return
+    # read doctors from DB if present, else use DOCTOR_SAMPLE
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM doctors")
+    rows = cur.fetchall()
+    if rows:
+        rows_list = [dict(r) for r in rows]
+    else:
+        rows_list = DOCTOR_SAMPLE
+    # create a DataFrame with availability expanded
+    data = []
+    for d in rows_list:
+        weekday_avail = d.get("weekday_availability")
+        if isinstance(weekday_avail, str):
+            try:
+                weekday_avail = json.loads(weekday_avail)
+            except:
+                weekday_avail = {"Mon": True, "Tue": True, "Wed": True, "Thu": True, "Fri": True}
+        data.append(
+            {
+                "doctor_id": d.get("doctor_id"),
+                "full_name": d.get("full_name"),
+                "specialty": d.get("specialty"),
+                "start_time": d.get("start_time"),
+                "end_time": d.get("end_time"),
+                "lunch_start": d.get("lunch_start"),
+                "lunch_end": d.get("lunch_end"),
+                "location": d.get("location"),
+                "weekday_availability": json.dumps(weekday_avail),
+            }
+        )
+    df = pd.DataFrame(data)
+    df.to_excel(DOCTOR_SCHEDULE_XLSX, index=False)
+
+
+# -----------------------------
+# Data Access Layer (simple wrappers)
+# -----------------------------
 class DAL:
     @staticmethod
-    def search_patients(q: str) -> pd.DataFrame:
-        q_like = f"%{q.strip()}%"
-        with get_conn() as conn:
-            df = read_df(conn.cursor(), """
-                SELECT * FROM patients
-                WHERE full_name LIKE ? OR phone LIKE ? OR email LIKE ?
-                ORDER BY updated_at DESC
-            """, (q_like, q_like, q_like))
+    def conn():
+        return get_conn()
+
+    # Patients
+    @staticmethod
+    def all_patients_df() -> pd.DataFrame:
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM patients ORDER BY created_at DESC", conn)
+        conn.close()
         return df
 
     @staticmethod
-    def all_patients() -> pd.DataFrame:
-        with get_conn() as conn:
-            return read_df(conn.cursor(), "SELECT * FROM patients ORDER BY created_at DESC")
+    def search_patients(q: str) -> pd.DataFrame:
+        conn = get_conn()
+        like = f"%{q}%"
+        df = pd.read_sql_query(
+            "SELECT * FROM patients WHERE full_name LIKE ? OR phone LIKE ? OR email LIKE ? ORDER BY updated_at DESC",
+            conn,
+            params=(like, like, like),
+        )
+        conn.close()
+        return df
 
     @staticmethod
     def get_patient(pid: str) -> Optional[dict]:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM patients WHERE patient_id=?", (pid,))
-            r = cur.fetchone()
-            return dict(r) if r else None
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM patients WHERE patient_id=?", (pid,))
+        r = cur.fetchone()
+        conn.close()
+        return dict(r) if r else None
 
     @staticmethod
-    def upsert_patient(data: dict) -> str:
-        data = {**data}
-        if not data.get("patient_id"):
-            data["patient_id"] = gen_id("PAT")
-            data["created_at"] = now_str()
-        data["updated_at"] = now_str()
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(1) AS c FROM patients WHERE patient_id=?", (data["patient_id"],))
-            exists = cur.fetchone()["c"] > 0
-            if exists:
-                cur.execute("""
+    def upsert_patient(p: dict) -> str:
+        conn = get_conn()
+        cur = conn.cursor()
+        pid = p.get("patient_id") or gen_id("PAT", 6)
+        now = now_str()
+        # check exists
+        cur.execute("SELECT COUNT(1) AS c FROM patients WHERE patient_id=?", (pid,))
+        exists = cur.fetchone()["c"] > 0
+        if exists:
+            cur.execute(
+                """
                 UPDATE patients SET first_name=?, last_name=?, full_name=?, dob=?, phone=?, email=?,
                     insurance_company=?, member_id=?, group_number=?, patient_type=?, last_visit=?, updated_at=?
                 WHERE patient_id=?
-                """, (data.get("first_name",""), data.get("last_name",""), data.get("full_name",""),
-                      data.get("dob",""), data.get("phone",""), data.get("email",""),
-                      data.get("insurance_company",""), data.get("member_id",""), data.get("group_number",""),
-                      data.get("patient_type","New"), data.get("last_visit"), data.get("updated_at"), data["patient_id"]))
-            else:
-                cur.execute("""
+                """,
+                (
+                    p.get("first_name"),
+                    p.get("last_name"),
+                    p.get("full_name"),
+                    p.get("dob"),
+                    p.get("phone"),
+                    p.get("email"),
+                    p.get("insurance_company"),
+                    p.get("member_id"),
+                    p.get("group_number"),
+                    p.get("patient_type"),
+                    p.get("last_visit"),
+                    now,
+                    pid,
+                ),
+            )
+        else:
+            cur.execute(
+                """
                 INSERT INTO patients(patient_id, first_name, last_name, full_name, dob, phone, email,
                     insurance_company, member_id, group_number, patient_type, last_visit, created_at, updated_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (data["patient_id"], data.get("first_name",""), data.get("last_name",""), data.get("full_name",""),
-                      data.get("dob",""), data.get("phone",""), data.get("email",""),
-                      data.get("insurance_company",""), data.get("member_id",""), data.get("group_number",""),
-                      data.get("patient_type","New"), data.get("last_visit"), data.get("created_at",now_str()), data.get("updated_at",now_str())))
-            conn.commit()
-        return data["patient_id"]
+                """,
+                (
+                    pid,
+                    p.get("first_name"),
+                    p.get("last_name"),
+                    p.get("full_name"),
+                    p.get("dob"),
+                    p.get("phone"),
+                    p.get("email"),
+                    p.get("insurance_company"),
+                    p.get("member_id"),
+                    p.get("group_number"),
+                    p.get("patient_type"),
+                    p.get("last_visit"),
+                    now,
+                    now,
+                ),
+            )
+        conn.commit()
+        conn.close()
+        return pid
 
     @staticmethod
-    def delete_patient(pid: str) -> bool:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            # Cascade delete reminders of appointments of this patient
-            cur.execute("SELECT appointment_id FROM appointments WHERE patient_id=?", (pid,))
-            appts = [r["appointment_id"] for r in cur.fetchall()]
-            for aid in appts:
-                cur.execute("DELETE FROM reminders WHERE appointment_id=?", (aid,))
-            cur.execute("DELETE FROM appointments WHERE patient_id=?", (pid,))
-            cur.execute("DELETE FROM patients WHERE patient_id=?", (pid,))
-            conn.commit()
-        return True
+    def delete_patient(pid: str):
+        conn = get_conn()
+        cur = conn.cursor()
+        # delete related reminders and appointments
+        cur.execute("SELECT appointment_id FROM appointments WHERE patient_id=?", (pid,))
+        rows = cur.fetchall()
+        for r in rows:
+            cur.execute("DELETE FROM reminders WHERE appointment_id=?", (r["appointment_id"],))
+        cur.execute("DELETE FROM appointments WHERE patient_id=?", (pid,))
+        cur.execute("DELETE FROM patients WHERE patient_id=?", (pid,))
+        conn.commit()
+        conn.close()
 
-    # --- Doctors ---
+    # Doctors
     @staticmethod
-    def all_doctors() -> pd.DataFrame:
-        with get_conn() as conn:
-            return read_df(conn.cursor(), "SELECT * FROM doctors ORDER BY full_name ASC")
+    def all_doctors_df() -> pd.DataFrame:
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM doctors ORDER BY full_name", conn)
+        conn.close()
+        return df
 
     @staticmethod
     def get_doctor(did: str) -> Optional[dict]:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM doctors WHERE doctor_id=?", (did,))
-            r = cur.fetchone()
-            return dict(r) if r else None
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM doctors WHERE doctor_id=?", (did,))
+        r = cur.fetchone()
+        conn.close()
+        return dict(r) if r else None
 
     @staticmethod
-    def upsert_doctor(data: dict) -> str:
-        if not data.get("doctor_id"):
-            data["doctor_id"] = gen_id("DOC")
-            data["created_at"] = now_str()
-        data["updated_at"] = now_str()
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(1) AS c FROM doctors WHERE doctor_id=?", (data["doctor_id"],))
-            exists = cur.fetchone()["c"] > 0
-            if exists:
-                cur.execute("""
-                UPDATE doctors SET full_name=?, specialty=?, weekday_availability=?, start_time=?, end_time=?,
-                    lunch_start=?, lunch_end=?, location=?, updated_at=?
-                WHERE doctor_id=?
-                """, (
-                    data.get("full_name",""),
-                    data.get("specialty",""),
-                    json.dumps(data.get("weekday_availability",{})),
-                    data.get("start_time","09:00"),
-                    data.get("end_time","17:00"),
-                    data.get("lunch_start","12:30"),
-                    data.get("lunch_end","13:30"),
-                    data.get("location","Main Clinic - Downtown"),
-                    data["updated_at"], data["doctor_id"]
-                ))
-            else:
-                cur.execute("""
-                INSERT INTO doctors(doctor_id, full_name, specialty, weekday_availability, start_time, end_time,
-                    lunch_start, lunch_end, location, created_at, updated_at)
+    def upsert_doctor(d: dict) -> str:
+        conn = get_conn()
+        cur = conn.cursor()
+        did = d.get("doctor_id") or gen_id("DOC", 5)
+        now = now_str()
+        cur.execute("SELECT COUNT(1) AS c FROM doctors WHERE doctor_id=?", (did,))
+        exists = cur.fetchone()["c"] > 0
+        weekday_avail = d.get("weekday_availability") or {"Mon": True, "Tue": True, "Wed": True, "Thu": True, "Fri": True}
+        if exists:
+            cur.execute(
+                """
+                UPDATE doctors SET full_name=?, specialty=?, weekday_availability=?, start_time=?, end_time=?, lunch_start=?, lunch_end=?, location=?, updated_at=? WHERE doctor_id=?
+                """,
+                (
+                    d.get("full_name"),
+                    d.get("specialty"),
+                    json.dumps(weekday_avail),
+                    d.get("start_time"),
+                    d.get("end_time"),
+                    d.get("lunch_start"),
+                    d.get("lunch_end"),
+                    d.get("location"),
+                    now,
+                    did,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO doctors(doctor_id, full_name, specialty, weekday_availability, start_time, end_time, lunch_start, lunch_end, location, created_at, updated_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    data["doctor_id"], data.get("full_name",""), data.get("specialty",""),
-                    json.dumps(data.get("weekday_availability",{})),
-                    data.get("start_time","09:00"), data.get("end_time","17:00"),
-                    data.get("lunch_start","12:30"), data.get("lunch_end","13:30"),
-                    data.get("location","Main Clinic - Downtown"), data.get("created_at",now_str()), data.get("updated_at",now_str())
-                ))
-            conn.commit()
-        return data["doctor_id"]
+                """,
+                (
+                    did,
+                    d.get("full_name"),
+                    d.get("specialty"),
+                    json.dumps(weekday_avail),
+                    d.get("start_time", "09:00"),
+                    d.get("end_time", "17:00"),
+                    d.get("lunch_start", "12:30"),
+                    d.get("lunch_end", "13:30"),
+                    d.get("location", "Main Clinic - Downtown"),
+                    now,
+                    now,
+                ),
+            )
+        conn.commit()
+        conn.close()
+        return did
 
     @staticmethod
-    def delete_doctor(did: str) -> bool:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            # cascade delete doctor's appointments and reminders
-            cur.execute("SELECT appointment_id FROM appointments WHERE doctor_id=?", (did,))
-            appts = [r["appointment_id"] for r in cur.fetchall()]
-            for aid in appts:
-                cur.execute("DELETE FROM reminders WHERE appointment_id=?", (aid,))
-            cur.execute("DELETE FROM appointments WHERE doctor_id=?", (did,))
-            cur.execute("DELETE FROM doctors WHERE doctor_id=?", (did,))
-            conn.commit()
-        return True
+    def delete_doctor(did: str):
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT appointment_id FROM appointments WHERE doctor_id=?", (did,))
+        rows = cur.fetchall()
+        for r in rows:
+            cur.execute("DELETE FROM reminders WHERE appointment_id=?", (r["appointment_id"],))
+        cur.execute("DELETE FROM appointments WHERE doctor_id=?", (did,))
+        cur.execute("DELETE FROM doctors WHERE doctor_id=?", (did,))
+        conn.commit()
+        conn.close()
 
-    # --- Appointments ---
+    # Appointments
     @staticmethod
-    def all_appointments() -> pd.DataFrame:
-        with get_conn() as conn:
-            return read_df(conn.cursor(), """
-            SELECT a.*, p.full_name AS patient_name FROM appointments a
-            LEFT JOIN patients p ON p.patient_id = a.patient_id
-            ORDER BY date DESC, time DESC
-            """)
+    def all_appointments_df() -> pd.DataFrame:
+        conn = get_conn()
+        df = pd.read_sql_query(
+            "SELECT a.*, p.full_name AS patient_name FROM appointments a LEFT JOIN patients p ON p.patient_id=a.patient_id ORDER BY date DESC, time DESC",
+            conn,
+        )
+        conn.close()
+        return df
 
     @staticmethod
     def get_appointment(aid: str) -> Optional[dict]:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM appointments WHERE appointment_id=?", (aid,))
-            r = cur.fetchone()
-            return dict(r) if r else None
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM appointments WHERE appointment_id=?", (aid,))
+        r = cur.fetchone()
+        conn.close()
+        return dict(r) if r else None
 
     @staticmethod
-    def patient_appointments(pid: str) -> pd.DataFrame:
-        with get_conn() as conn:
-            return read_df(conn.cursor(), """
-            SELECT * FROM appointments WHERE patient_id=? ORDER BY date DESC, time DESC
-            """, (pid,))
+    def appointments_by_doctor_date(did: str, date_str: str) -> pd.DataFrame:
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM appointments WHERE doctor_id=? AND date=? ORDER BY time ASC", conn, params=(did, date_str))
+        conn.close()
+        return df
 
     @staticmethod
-    def doctor_appointments(did: str, day: Optional[str] = None) -> pd.DataFrame:
-        with get_conn() as conn:
-            if day:
-                return read_df(conn.cursor(), """
-                SELECT * FROM appointments WHERE doctor_id=? AND date=? ORDER BY time ASC
-                """, (did, day))
-            return read_df(conn.cursor(), "SELECT * FROM appointments WHERE doctor_id=?", (did,))
-
-    @staticmethod
-    def upsert_appointment(data: dict) -> str:
-        if not data.get("appointment_id"):
-            data["appointment_id"] = gen_id("APT")
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(1) AS c FROM appointments WHERE appointment_id=?", (data["appointment_id"],))
-            exists = cur.fetchone()["c"] > 0
-            if exists:
-                cur.execute("""
-                UPDATE appointments SET patient_id=?, doctor_id=?, doctor_name=?, date=?, time=?, duration=?,
-                    appt_type=?, location=?, status=?, booking_time=?, notes=?
+    def upsert_appointment(a: dict) -> str:
+        conn = get_conn()
+        cur = conn.cursor()
+        aid = a.get("appointment_id") or gen_id("APT", 6)
+        cur.execute("SELECT COUNT(1) AS c FROM appointments WHERE appointment_id=?", (aid,))
+        exists = cur.fetchone()["c"] > 0
+        if exists:
+            cur.execute(
+                """
+                UPDATE appointments SET patient_id=?, doctor_id=?, doctor_name=?, date=?, time=?, duration=?, appt_type=?, location=?, status=?, booking_time=?, notes=?
                 WHERE appointment_id=?
-                """, (
-                    data.get("patient_id",""), data.get("doctor_id",""), data.get("doctor_name",""),
-                    data.get("date",""), data.get("time",""), int(data.get("duration",30)),
-                    data.get("appt_type","Follow-up (30m)"), data.get("location",""),
-                    data.get("status","Confirmed"), data.get("booking_time",now_str()),
-                    data.get("notes",""), data["appointment_id"]
-                ))
-            else:
-                cur.execute("""
-                INSERT INTO appointments(appointment_id, patient_id, doctor_id, doctor_name, date, time, duration,
-                    appt_type, location, status, booking_time, notes)
+                """,
+                (
+                    a.get("patient_id"),
+                    a.get("doctor_id"),
+                    a.get("doctor_name"),
+                    a.get("date"),
+                    a.get("time"),
+                    a.get("duration"),
+                    a.get("appt_type"),
+                    a.get("location"),
+                    a.get("status"),
+                    a.get("booking_time"),
+                    a.get("notes"),
+                    aid,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO appointments(appointment_id, patient_id, doctor_id, doctor_name, date, time, duration, appt_type, location, status, booking_time, notes)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    data["appointment_id"], data.get("patient_id",""), data.get("doctor_id",""), data.get("doctor_name",""),
-                    data.get("date",""), data.get("time",""), int(data.get("duration",30)),
-                    data.get("appt_type","Follow-up (30m)"), data.get("location",""),
-                    data.get("status","Confirmed"), data.get("booking_time",now_str()), data.get("notes","")
-                ))
-            conn.commit()
-        return data["appointment_id"]
+                """,
+                (
+                    aid,
+                    a.get("patient_id"),
+                    a.get("doctor_id"),
+                    a.get("doctor_name"),
+                    a.get("date"),
+                    a.get("time"),
+                    a.get("duration"),
+                    a.get("appt_type"),
+                    a.get("location"),
+                    a.get("status"),
+                    a.get("booking_time"),
+                    a.get("notes"),
+                ),
+            )
+        conn.commit()
+        conn.close()
+        return aid
 
     @staticmethod
-    def delete_appointment(aid: str) -> bool:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM reminders WHERE appointment_id=?", (aid,))
-            cur.execute("DELETE FROM appointments WHERE appointment_id=?", (aid,))
-            conn.commit()
-        return True
+    def delete_appointment(aid: str):
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM reminders WHERE appointment_id=?", (aid,))
+        cur.execute("DELETE FROM appointments WHERE appointment_id=?", (aid,))
+        conn.commit()
+        conn.close()
 
-    # --- Reminders ---
+    # Reminders
     @staticmethod
     def create_reminder(appointment_id: str, remind_at: str, channel: str, message: str, state: str = "Scheduled") -> str:
-        rid = gen_id("REM")
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-            INSERT INTO reminders(reminder_id, appointment_id, remind_at, channel, message, state, created_at)
-            VALUES(?,?,?,?,?,?,?)
-            """, (rid, appointment_id, remind_at, channel, message, state, now_str()))
-            conn.commit()
+        conn = get_conn()
+        cur = conn.cursor()
+        rid = gen_id("REM", 6)
+        cur.execute(
+            "INSERT INTO reminders(reminder_id, appointment_id, remind_at, channel, message, state, created_at) VALUES(?,?,?,?,?,?,?)",
+            (rid, appointment_id, remind_at, channel, message, state, now_str()),
+        )
+        conn.commit()
+        conn.close()
         return rid
 
     @staticmethod
     def reminders_for_appointment(aid: str) -> pd.DataFrame:
-        with get_conn() as conn:
-            return read_df(conn.cursor(), "SELECT * FROM reminders WHERE appointment_id=? ORDER BY remind_at ASC", (aid,))
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM reminders WHERE appointment_id=? ORDER BY remind_at ASC", conn, params=(aid,))
+        conn.close()
+        return df
 
-# --------------------------------------------------------------------------------------
-# Availability & Scheduling Helpers
-# --------------------------------------------------------------------------------------
+    @staticmethod
+    def all_reminders_df() -> pd.DataFrame:
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM reminders ORDER BY remind_at DESC", conn)
+        conn.close()
+        return df
 
-def _time_to_minutes(t: time) -> int:
-    return t.hour * 60 + t.minute
 
-def _parse_time(ts: str) -> time:
+# -----------------------------
+# Scheduling helpers
+# -----------------------------
+def parse_time_str(ts: str) -> time:
     h, m = ts.split(":")
     return time(int(h), int(m))
 
-def generate_slots_for_day(doctor: dict, day_str: str, appt_minutes: int) -> List[str]:
-    """Generate available times for a doctor on a given date (YYYY-MM-DD)."""
-    weekday_name = datetime.strptime(day_str, "%Y-%m-%d").strftime("%a")
-    weekday_avail = json.loads(doctor.get("weekday_availability") or "{}")
-    if not weekday_avail.get(weekday_name, False):
+
+def minutes_of_day(t: time) -> int:
+    return t.hour * 60 + t.minute
+
+
+def generate_slots(doctor: dict, date_str: str, appt_minutes: int) -> List[str]:
+    """
+    Generate candidate start times (HH:MM) for the doctor's schedule on date_str.
+    Respects weekday availability and lunch.
+    Does not check existing appointments (that is done later).
+    """
+    # determine weekday shortname like Mon/Tue...
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    weekday_short = dt.strftime("%a")  # Mon, Tue, Wed ...
+    # doctor.weekday_availability may be JSON string in DB
+    wa = doctor.get("weekday_availability")
+    try:
+        if isinstance(wa, str):
+            wa_dict = json.loads(wa)
+        else:
+            wa_dict = wa or {}
+    except:
+        wa_dict = {}
+
+    # map 'Mon' vs 'Mon' - keep using Mon/Tue/Wed/Thu/Fri
+    valid = wa_dict.get(weekday_short, wa_dict.get(weekday_short[:3], True))
+    if not valid:
         return []
 
-    start_t = _parse_time(doctor.get("start_time") or "09:00")
-    end_t = _parse_time(doctor.get("end_time") or "17:00")
-    lunch_s = _parse_time(doctor.get("lunch_start") or "12:30")
-    lunch_e = _parse_time(doctor.get("lunch_end") or "13:30")
+    start = parse_time_str(doctor.get("start_time", "09:00"))
+    end = parse_time_str(doctor.get("end_time", "17:00"))
+    lunch_start = parse_time_str(doctor.get("lunch_start", "12:30"))
+    lunch_end = parse_time_str(doctor.get("lunch_end", "13:30"))
 
-    day_minutes = range(_time_to_minutes(start_t), _time_to_minutes(end_t), 15)  # slot every 15m
+    start_min = minutes_of_day(start)
+    end_min = minutes_of_day(end)
+
+    step = 15  # every 15 minutes candidate
     slots = []
-    for m in day_minutes:
-        slot_start = time(m // 60, m % 60)
-        slot_end_minutes = m + appt_minutes
-        if slot_end_minutes > _time_to_minutes(end_t):
+    for m in range(start_min, end_min, step):
+        slot_start = m
+        slot_end = m + appt_minutes
+        if slot_end > end_min:
             continue
-        slot_end = time(slot_end_minutes // 60, slot_end_minutes % 60)
-
-        # avoid lunch overlap
-        if not (slot_end <= lunch_s or slot_start >= lunch_e):
-            if not (slot_start >= lunch_s and slot_end <= lunch_e):
-                # some overlap with lunch, skip
-                continue
-
-        slots.append(f"{slot_start.strftime('%H:%M')}")
+        # skip if overlaps lunch
+        if not (slot_end <= minutes_of_day(lunch_start) or slot_start >= minutes_of_day(lunch_end)):
+            continue
+        # format slot start time
+        hh = slot_start // 60
+        mm = slot_start % 60
+        slots.append(f"{hh:02d}:{mm:02d}")
     return slots
 
-def remove_conflicts(slots: List[str], taken_times: List[str], appt_minutes:int) -> List[str]:
-    """Remove times that conflict with existing appointments plus buffer."""
-    taken_set = set(taken_times)
-    clean = []
-    for s in slots:
-        # simple check: don't allow same start; optional: pre/post buffer of 5m
-        if s in taken_set:
-            continue
-        clean.append(s)
-    return clean
 
-def next_weekdays(n=7) -> List[str]:
-    today = datetime.now().date()
-    days = []
-    d = today
-    for _ in range(n*2): # search ahead to skip weekends
+def filter_taken_slots(candidate_slots: List[str], existing_times: List[str], appt_minutes: int) -> List[str]:
+    # naive approach: if same start time exists, remove. Could consider overlapping ranges.
+    existing_set = set(existing_times or [])
+    return [s for s in candidate_slots if s not in existing_set]
+
+
+def next_n_weekdays(n=7) -> List[str]:
+    result = []
+    d = date.today()
+    while len(result) < n:
         d += timedelta(days=1)
         if d.weekday() < 5:
-            days.append(d.strftime("%Y-%m-%d"))
-            if len(days) >= n:
-                break
-    return days
+            result.append(d.strftime("%Y-%m-%d"))
+    return result
 
-# --------------------------------------------------------------------------------------
-# Download Helpers
-# --------------------------------------------------------------------------------------
 
-def download_df(df: pd.DataFrame, filename: str, label: str):
-    if df is None or df.empty:
-        st.caption("No data available.")
-        return
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(label=label + " (CSV)", data=csv, file_name=f"{filename}.csv", mime="text/csv")
-    # Excel
-    bio = io.BytesIO()
-    with pd.ExcelWriter(bio, engine="xlsxwriter") as writer:
+# -----------------------------
+# Export helpers
+# -----------------------------
+def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8")
+
+
+def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Sheet1")
-    st.download_button(label=label + " (Excel)", data=bio.getvalue(), file_name=f"{filename}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return buffer.getvalue()
 
-# --------------------------------------------------------------------------------------
-# Sidebar: App Nav & KPIs
-# --------------------------------------------------------------------------------------
 
+# -----------------------------
+# Boot / Seed DB & Files
+# -----------------------------
+init_db()
+seed_demo_patients(50)
+seed_demo_doctors()
+ensure_doctor_schedule_xlsx()
+
+# -----------------------------
+# Session State initializations
+# -----------------------------
+if "conversation_history" not in st.session_state:
+    st.session_state.conversation_history = []
+if "current_patient" not in st.session_state:
+    st.session_state.current_patient = {}
+if "appointment" not in st.session_state:
+    st.session_state.appointment = {}
+if "step" not in st.session_state:
+    st.session_state.step = "greeting"
+if "sent_reminders" not in st.session_state:
+    st.session_state.sent_reminders = []  # store simulated sends for demo
+
+# -----------------------------
+# Layout: Sidebar & Nav
+# -----------------------------
 with st.sidebar:
-    st.markdown(
-        f"""
-        <div class="mh">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <div>
-                <h1>🏥 MediCare Agent</h1>
-                <p>Allergy & Wellness Clinic</p>
-              </div>
-              <span class="badge">v1.0 • Live</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="mh"><h2 style="margin:0">MediCare Agent</h2><div class="small-muted">Allergy & Wellness Center - Demo</div></div>', unsafe_allow_html=True)
 
-    nav = st.radio(
-        "Navigation",
-        options=["Home", "Patients", "Appointments", "Doctors", "Analytics", "Settings"],
-        index=0,
-        label_visibility="collapsed",
-    )
+    nav = st.radio("Go to", ["Home", "Greeting", "Scheduling", "Appointments", "Patients", "Doctors", "Reminders & Exports", "Settings"], index=0)
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-    with st.expander("📈 Quick KPIs", expanded=True):
-        appts = DAL.all_appointments()
-        pats = DAL.all_patients()
-        docs = DAL.all_doctors()
-        colA, colB = st.columns(2)
-        with colA:
-            st.markdown('<div class="kpi"><div class="num">{}</div><div class="lbl">Appointments</div></div>'.format(len(appts)), unsafe_allow_html=True)
-            st.markdown('<div class="kpi"><div class="num">{}</div><div class="lbl">Patients</div></div>'.format(len(pats)), unsafe_allow_html=True)
-        with colB:
-            st.markdown('<div class="kpi"><div class="num">{}</div><div class="lbl">Doctors</div></div>'.format(len(docs)), unsafe_allow_html=True)
-            upcoming = appts[appts["date"] >= datetime.now().strftime("%Y-%m-%d")].shape[0] if not appts.empty else 0
-            st.markdown('<div class="kpi"><div class="num">{}</div><div class="lbl">Upcoming</div></div>'.format(upcoming), unsafe_allow_html=True)
+    # quick KPIs
+    appts = DAL.all_appointments_df()
+    pats = DAL.all_patients_df()
+    docs = DAL.all_doctors_df()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"<div class='card'><div class='pill'>Appointments</div><h3 style='margin:.25rem 0 0 0'>{len(appts)}</h3><div class='small-muted'>Total</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='card'><div class='pill'>Doctors</div><h3 style='margin:.25rem 0 0 0'>{len(docs)}</h3><div class='small-muted'>Active</div></div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"<div class='card'><div class='pill'>Patients</div><h3 style='margin:.25rem 0 0 0'>{len(pats)}</h3><div class='small-muted'>On File</div></div>", unsafe_allow_html=True)
+        upcoming = appts[appts["date"] >= datetime.now().strftime("%Y-%m-%d")].shape[0] if not appts.empty else 0
+        st.markdown(f"<div class='card'><div class='pill'>Upcoming</div><h3 style='margin:.25rem 0 0 0'>{upcoming}</h3><div class='small-muted'>Next 7 days</div></div>", unsafe_allow_html=True)
 
-# --------------------------------------------------------------------------------------
-# HOME
-# --------------------------------------------------------------------------------------
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
+# -----------------------------
+# Home
+# -----------------------------
 if nav == "Home":
-    st.markdown(
-        """
-        <div class="section">
-          <h3 class="section-title">✨ Welcome</h3>
-          <p class="small-muted">This assistant helps you schedule, manage, and analyze appointments across MediCare clinics. Use the navigation to access key areas.</p>
-          <div class="hr"></div>
-          <div class="callout-warn"><b>Medication Reminder:</b> Stop antihistamines 7 days before allergy testing. You may continue nasal sprays, inhalers, and other prescriptions.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("Welcome — MediCare AI Scheduling Agent (Demo)")
+    st.write("This app implements the intern case-study MVP: greeting, patient lookup, smart scheduling (60m vs 30m), insurance capture, confirmation, intake form distribution and simulated reminders.")
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-    st.write("")
-    c1, c2 = st.columns([1.85, 1])
-    with c1:
-        st.markdown('<div class="section"><h3 class="section-title">💬 Conversation Assistant</h3>', unsafe_allow_html=True)
-        with st.form("assistant_form", clear_on_submit=False):
-            user_text = st.text_area("Type your request (e.g., “Schedule me with Dr. Chen next Tuesday morning”)", height=110)
-            submitted = st.form_submit_button("Generate Plan")
-        plan_box = st.empty()
-        if submitted and user_text.strip():
-            # naive intent detection
-            ut = user_text.lower()
-            if any(k in ut for k in ["reschedule", "move", "change time"]):
-                intent = "reschedule"
-            elif any(k in ut for k in ["cancel", "remove", "drop"]):
-                intent = "cancel"
-            else:
-                intent = "schedule"
-            st.session_state["assistant_intent"] = intent
-            # Basic response plan
-            resp = {
-                "intent": intent,
-                "steps": [
-                    "Identify patient (name, DOB, phone).",
-                    "Confirm doctor preference, appointment type, and date range.",
-                    "Check availability and propose top 3 slots.",
-                    "Confirm & book; collect insurance if missing.",
-                    "Send confirmation & schedule reminders."
-                ]
-            }
-            plan_box.info(f"Intent detected: **{intent.upper()}**\n\nProposed Steps:\n- " + "\n- ".join(resp["steps"]))
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c2:
-        st.markdown('<div class="section"><h3 class="section-title">📅 Today</h3>', unsafe_allow_html=True)
-        today = datetime.now().strftime("%Y-%m-%d")
-        df = DAL.all_appointments()
-        if df.empty:
-            st.caption("No appointments found.")
+    st.markdown("### Conversation Assistant (Quick demo)")
+    with st.form("assistant_demo"):
+        text = st.text_area("Type a request (ex: 'Book me with Dr. Chen next Wednesday morning')", height=100)
+        generate = st.form_submit_button("Analyze Intent & Plan")
+    if generate and text.strip():
+        ut = text.lower()
+        if any(k in ut for k in ["resched", "reschedule", "move", "change time"]):
+            intent = "reschedule"
+        elif any(k in ut for k in ["cancel", "drop", "remove"]):
+            intent = "cancel"
         else:
-            td = df[df["date"] == today][["appointment_id","doctor_name","time","appt_type","status"]].sort_values("time")
-            st.dataframe(td, use_container_width=True, height=270)
-        st.markdown("</div>", unsafe_allow_html=True)
+            intent = "schedule"
+        st.info(f"Detected intent: **{intent}**")
+        st.markdown(
+            """
+            **Suggested Plan**
+            - Identify patient (name, DOB, phone)
+            - Confirm doctor & appointment type
+            - Offer top 3 available slots
+            - Confirm & create appointment, collect insurance info if missing
+            - Send confirmation and schedule reminders (72h, 24h, 4h)
+            """
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# --------------------------------------------------------------------------------------
-# PATIENTS
-# --------------------------------------------------------------------------------------
-
-if nav == "Patients":
-    st.markdown('<div class="section"><h3 class="section-title">👤 Patients</h3>', unsafe_allow_html=True)
-
-    # Search & actions
-    qcol1, qcol2, qcol3, qcol4 = st.columns([2,1.2,1.2,1.2])
-    q = qcol1.text_input("Search by name, phone, or email", "")
-    add_new = qcol2.button("➕ Add Patient", use_container_width=True)
-    export_btn = qcol3.button("⬇️ Export All", use_container_width=True)
-    reset_btn = qcol4.button("🔄 Refresh", use_container_width=True)
-
-    if reset_btn:
-        st.experimental_rerun()
-
-    if export_btn:
-        pats = DAL.all_patients()
-        download_df(pats, "patients_export", "Download Patients")
-
-    # Listing
-    if q.strip():
-        df = DAL.search_patients(q)
-    else:
-        df = DAL.all_patients()
-    if df.empty:
-        st.info("No patients found. Try adding a new one.")
-    else:
-        show_cols = ["patient_id","full_name","dob","phone","email","insurance_company","patient_type","last_visit","updated_at"]
-        st.markdown('<div class="table-top"><div class="tbl-note">Showing {} records</div></div>'.format(len(df)), unsafe_allow_html=True)
-        st.dataframe(df[show_cols], use_container_width=True, height=350)
-
-    # Create/Edit Modal (inline form)
-    st.markdown('<div class="hr"></div><h4>Add / Edit Patient</h4>', unsafe_allow_html=True)
-    with st.form("patient_form", clear_on_submit=True):
-        colsA = st.columns(3)
-        first_name = colsA[0].text_input("First Name *")
-        last_name  = colsA[1].text_input("Last Name *")
-        dob        = colsA[2].date_input("DOB *", value=date(1990,1,1), format="YYYY-MM-DD")
-        colsB = st.columns(3)
-        phone      = colsB[0].text_input("Phone *", placeholder="(555) 123-4567")
-        email      = colsB[1].text_input("Email *", placeholder="you@example.com")
-        ptype      = colsB[2].selectbox("Patient Type", ["New","Returning"])
-        colsC = st.columns(3)
-        insurer   = colsC[0].text_input("Insurance Company", placeholder="Blue Cross Blue Shield")
-        member_id = colsC[1].text_input("Member ID", placeholder="ABC123456")
-        group_num = colsC[2].text_input("Group Number", placeholder="GRP5678")
-        last_visit = st.text_input("Last Visit (YYYY-MM-DD)", value="")
-        pid_existing = st.text_input("Existing Patient ID (optional for edit)", placeholder="PAT123456")
-
-        s1, s2 = st.columns([1,4])
-        with s1:
-            submitted = st.form_submit_button("💾 Save Patient", use_container_width=True)
-        with s2:
-            delete_click = st.form_submit_button("🗑️ Delete (Enter Patient ID above)", use_container_width=True)
-
-        if submitted:
-            errs = []
-            if not first_name or not last_name:
-                errs.append("Name is required.")
-            if not phone or not email:
-                errs.append("Phone and Email are required.")
-            if errs:
-                st.error(" • " + " • ".join(errs))
+# -----------------------------
+# Greeting / Lookup / Start Workflow
+# -----------------------------
+if nav == "Greeting":
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("👋 Patient Greeting & Lookup")
+    st.write("Enter patient details to find existing record or create a new patient. We'll auto-assign new patients a 60-minute initial slot by default.")
+    with st.form("greet_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            first_name = st.text_input("First Name *", key="g_first")
+            dob = st.date_input("Date of Birth *", key="g_dob", value=date(1990, 1, 1))
+        with col2:
+            last_name = st.text_input("Last Name *", key="g_last")
+            phone = st.text_input("Phone *", key="g_phone", placeholder="+1-555-123-4567")
+        email = st.text_input("Email", key="g_email")
+        submitted = st.form_submit_button("🔍 Find My Information")
+    if submitted:
+        if not first_name or not last_name or not phone:
+            st.error("Please provide First Name, Last Name and Phone.")
+        else:
+            # search by exact name or phone/email substring
+            q = f"{first_name} {last_name}"
+            df_by_name = DAL.search_patients(q)
+            df_by_phone = DAL.search_patients(phone)
+            # combine
+            combined = pd.concat([df_by_name, df_by_phone]).drop_duplicates(subset=["patient_id"]) if not df_by_name.empty or not df_by_phone.empty else pd.DataFrame()
+            if not combined.empty:
+                # pick best match by phone/email if available
+                st.success("✅ Patient Found")
+                st.dataframe(combined[["patient_id", "full_name", "dob", "phone", "email", "patient_type"]], use_container_width=True)
+                # allow selecting one
+                sel = st.selectbox("Select patient to proceed", options=combined["patient_id"].tolist(), format_func=lambda pid: combined[combined["patient_id"] == pid]["full_name"].iloc[0])
+                if sel:
+                    patient = DAL.get_patient(sel)
+                    st.session_state.current_patient = patient
+                    st.session_state.step = "scheduling"
+                    st.info(f"Loaded patient: {patient['full_name']} — you can go to Scheduling tab or continue here.")
             else:
-                full_name = f"{first_name.strip()} {last_name.strip()}"
-                pdict = {
-                    "patient_id": pid_existing.strip() if pid_existing.strip() else None,
+                st.info("No existing patient found — creating a new temporary record.")
+                new_pid = gen_id("PAT", 6)
+                patient = {
+                    "patient_id": new_pid,
                     "first_name": first_name.strip(),
                     "last_name": last_name.strip(),
-                    "full_name": full_name,
+                    "full_name": f"{first_name.strip()} {last_name.strip()}",
                     "dob": dob.strftime("%Y-%m-%d"),
                     "phone": phone.strip(),
                     "email": email.strip(),
-                    "insurance_company": insurer.strip(),
-                    "member_id": member_id.strip(),
-                    "group_number": group_num.strip(),
-                    "patient_type": ptype,
-                    "last_visit": last_visit.strip() or None
+                    "insurance_company": "",
+                    "member_id": "",
+                    "group_number": "",
+                    "patient_type": "New",
+                    "last_visit": None,
+                    "created_at": now_str(),
+                    "updated_at": now_str(),
                 }
-                pid = DAL.upsert_patient(pdict)
-                st.success(f"Saved: {full_name} (ID: {pid})")
-                st.experimental_rerun()
+                st.session_state.current_patient = patient
+                st.success(f"New patient prepared: {patient['full_name']} (temporary).")
+                # Offer to save to DB
+                if st.button("💾 Save to Patient Records"):
+                    DAL.upsert_patient(patient)
+                    st.success("Patient saved to records.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        if delete_click:
-            if pid_existing.strip():
-                DAL.delete_patient(pid_existing.strip())
-                st.warning(f"Deleted patient {pid_existing.strip()}")
-                st.experimental_rerun()
-            else:
-                st.error("Provide a Patient ID to delete.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --------------------------------------------------------------------------------------
-# DOCTORS
-# --------------------------------------------------------------------------------------
-
-if nav == "Doctors":
-    st.markdown('<div class="section"><h3 class="section-title">👨‍⚕️ Doctors</h3>', unsafe_allow_html=True)
-    dc = DAL.all_doctors()
-    if dc.empty:
-        st.info("No doctors found.")
+# -----------------------------
+# Scheduling Workflow
+# -----------------------------
+if nav == "Scheduling":
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("📅 Scheduling — Smart workflow")
+    st.write("Flow: Pick patient → Select doctor → Pick date/time → Capture insurance (if new) → Confirm → Distribute intake form & schedule reminders.")
+    # pick patient
+    patients_df = DAL.all_patients_df()
+    if patients_df.empty:
+        st.info("No patients on file. Go to Patients tab to add.")
     else:
-        show_cols = ["doctor_id","full_name","specialty","location","weekday_availability","start_time","end_time","lunch_start","lunch_end","updated_at"]
-        st.dataframe(dc[show_cols], use_container_width=True, height=320)
+        pid_opts = patients_df["patient_id"].tolist()
+        pid_display = st.selectbox("Select Patient", options=pid_opts, format_func=lambda pid: f"{DAL.get_patient(pid)['full_name']} ({pid})", index=0)
+        patient = DAL.get_patient(pid_display)
+        st.markdown(f"**Patient:** {patient['full_name']} — Type: {patient['patient_type']}")
+        # doctor selection
+        doctors_df = DAL.all_doctors_df()
+        doc_opts = doctors_df["doctor_id"].tolist()
+        doc_display = st.selectbox("Select Doctor", options=doc_opts, format_func=lambda did: f\"{DAL.get_doctor(did)['full_name']} ({DAL.get_doctor(did)['specialty']})\")
+        doctor = DAL.get_doctor(doc_display)
+        # appointment type (auto-select by patient type)
+        suggested_type = "Initial Consultation (60m)" if patient["patient_type"] == "New" else "Follow-up (30m)"
+        appt_type = st.selectbox("Appointment Type", options=list(APPT_TYPES.keys()), index=list(APPT_TYPES.keys()).index(suggested_type))
+        duration = APPT_TYPES[appt_type]["minutes"]
+        # date selection: next 7 weekdays
+        days = next_n := next_n_weekdays(7)
+        sel_date = st.selectbox("Select Date", days)
+        # generate candidate slots
+        candidate_slots = generate_slots(doctor, sel_date, duration)
+        # remove existing appointment times
+        existing_df = DAL.appointments_by_doctor_date(doctor["doctor_id"], sel_date)
+        existing_times = existing_df["time"].tolist() if not existing_df.empty else []
+        free_slots = filter_taken_slots(candidate_slots, existing_times, duration)
+        if not free_slots:
+            st.warning("No available slots for this date & doctor. Try another date or doctor.")
+        else:
+            sel_time = st.selectbox("Available Time (select)", free_slots)
+            # insurance capture if missing
+            st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+            st.markdown("### Insurance (capture or confirm)")
+            col1, col2, col3 = st.columns(3)
+            insurer = col1.text_input("Insurance Company", value=patient.get("insurance_company", ""))
+            member_id = col2.text_input("Member ID", value=patient.get("member_id", ""))
+            group_num = col3.text_input("Group Number", value=patient.get("group_number", ""))
+            notes = st.text_area("Notes (optional)")
+            # confirm booking
+            if st.button("📅 Confirm & Book Appointment"):
+                # update patient insurance if empty
+                patient_update = patient.copy()
+                patient_update["insurance_company"] = insurer.strip()
+                patient_update["member_id"] = member_id.strip()
+                patient_update["group_number"] = group_num.strip()
+                patient_update["updated_at"] = now_str()
+                DAL.upsert_patient(patient_update)
+                # create appointment in DB
+                appt = {
+                    "patient_id": patient["patient_id"],
+                    "doctor_id": doctor["doctor_id"],
+                    "doctor_name": doctor["full_name"],
+                    "date": sel_date,
+                    "time": sel_time,
+                    "duration": duration,
+                    "appt_type": appt_type,
+                    "location": doctor.get("location", "Main Clinic - Downtown"),
+                    "status": "Confirmed",
+                    "booking_time": now_str(),
+                    "notes": notes,
+                }
+                aid = DAL.upsert_appointment(appt)
+                st.success(f"Appointment confirmed — ID: {aid} — {sel_date} {sel_time} with {doctor['full_name']}")
+                # schedule reminders (72h, 24h, 4h)
+                appt_dt = datetime.strptime(f"{sel_date} {sel_time}", "%Y-%m-%d %H:%M")
+                r1 = (appt_dt - timedelta(hours=72)).strftime("%Y-%m-%d %H:%M")
+                r2 = (appt_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
+                r3 = (appt_dt - timedelta(hours=4)).strftime("%Y-%m-%d %H:%M")
+                msg1 = f"Reminder: You have an appointment with {doctor['full_name']} on {sel_date} at {sel_time}."
+                msg2 = f"Interactive: Have you completed your intake form for your appointment on {sel_date} at {sel_time}?"
+                msg3 = f"Final: Is your visit on {sel_date} at {sel_time} confirmed? Reply 'C' to confirm or 'X' to cancel."
+                # create both Email and SMS reminders for each stage (simulation)
+                for ch, msg, ts in [("Email", msg1, r1), ("SMS", msg1, r1), ("Email", msg2, r2), ("SMS", msg2, r2), ("Email", msg3, r3), ("SMS", msg3, r3)]:
+                    DAL.create_reminder(aid, ts, ch, msg, "Scheduled")
+                # attach intake form (allow download)
+                if os.path.exists(INTAKE_FORM_PDF):
+                    st.info("Intake form attached — patient may download it below.")
+                    with open(INTAKE_FORM_PDF, "rb") as f:
+                        btn = st.download_button(label="📥 Download Intake Form (PDF)", data=f, file_name="New_Patient_Intake_Form.pdf", mime="application/pdf")
+                else:
+                    st.warning("Intake form PDF not found on server.")
+                # export appointment summary to excel/csv for admin
+                appt_df = DAL.all_appointments_df()
+                # show appointment summary for this appointment
+                st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+                st.subheader("Appointment Summary (Saved)")
+                st.dataframe(appt_df[appt_df["appointment_id"] == aid], use_container_width=True)
+                # prepare downloadable exports
+                csv_bytes = df_to_csv_bytes(appt_df[appt_df["appointment_id"] == aid])
+                st.download_button("Download Appointment (CSV)", csv_bytes, file_name=f"appointment_{aid}.csv", mime="text/csv")
+                excel_bytes = df_to_excel_bytes(appt_df[appt_df["appointment_id"] == aid])
+                st.download_button("Download Appointment (Excel)", excel_bytes, file_name=f"appointment_{aid}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                # save session state
+                st.session_state.appointment = DAL.get_appointment(aid)
+                st.session_state.step = "confirmation"
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="hr"></div><h4>Add / Edit Doctor</h4>', unsafe_allow_html=True)
-    with st.form("doctor_form", clear_on_submit=True):
-        c = st.columns(3)
-        did = c[0].text_input("Existing Doctor ID (optional to edit)", placeholder="DOC123456")
-        full_name = c[1].text_input("Full Name *", value="")
-        specialty = c[2].selectbox("Specialty *", DOCTOR_SPECIALTIES)
-
-        c2 = st.columns(3)
-        location = c2[0].text_input("Location *", value="Main Clinic - Downtown")
-        start_time = c2[1].text_input("Start Time (HH:MM)", value="09:00")
-        end_time = c2[2].text_input("End Time (HH:MM)", value="17:00")
-
-        c3 = st.columns(3)
-        lunch_start = c3[0].text_input("Lunch Start", value="12:30")
-        lunch_end   = c3[1].text_input("Lunch End", value="13:30")
-        weekdays = {}
-        with c3[2]:
-            st.caption("Weekday Availability")
-            wcols = st.columns(5)
-            for i, w in enumerate(WEEKDAYS):
-                weekdays[w] = wcols[i].checkbox(w, value=True)
-
-        s1, s2 = st.columns([1,4])
-        save_doc = s1.form_submit_button("💾 Save Doctor", use_container_width=True)
-        del_doc = s2.form_submit_button("🗑️ Delete Doctor", use_container_width=True)
-
-        if save_doc:
-            d = {
-                "doctor_id": did.strip() or None,
-                "full_name": full_name.strip(),
-                "specialty": specialty.strip(),
-                "weekday_availability": weekdays,
-                "start_time": start_time.strip(),
-                "end_time": end_time.strip(),
-                "lunch_start": lunch_start.strip(),
-                "lunch_end": lunch_end.strip(),
-                "location": location.strip(),
-            }
-            if not full_name:
-                st.error("Full name is required.")
-            else:
-                doc_id = DAL.upsert_doctor(d)
-                st.success(f"Saved: {full_name} (ID: {doc_id})")
-                st.experimental_rerun()
-
-        if del_doc:
-            if did.strip():
-                DAL.delete_doctor(did.strip())
-                st.warning(f"Deleted doctor {did.strip()}")
-                st.experimental_rerun()
-            else:
-                st.error("Provide Doctor ID to delete.")
-
-# --------------------------------------------------------------------------------------
-# APPOINTMENTS
-# --------------------------------------------------------------------------------------
-
+# -----------------------------
+# Appointments list / manage
+# -----------------------------
 if nav == "Appointments":
-    st.markdown('<div class="section"><h3 class="section-title">📆 Appointments</h3>', unsafe_allow_html=True)
-    colA, colB = st.columns([1.8, 1])
-
-    # Left: list & filters
-    with colA:
-        filt = st.container()
-        with filt:
-            f1, f2, f3, f4 = st.columns(4)
-            date_from = f1.date_input("From", value=datetime.now().date(), format="YYYY-MM-DD")
-            date_to = f2.date_input("To", value=(datetime.now().date()+timedelta(days=7)), format="YYYY-MM-DD")
-            status_sel = f3.multiselect("Status", ["Confirmed","Cancelled"], default=["Confirmed"])
-            type_sel = f4.multiselect("Type", list(APPT_TYPES.keys()), default=list(APPT_TYPES.keys()))
-
-        df = DAL.all_appointments()
-        if not df.empty:
-            df["dt"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df[(df["dt"] >= pd.to_datetime(date_from)) & (df["dt"] <= pd.to_datetime(date_to))]
-            df = df[df["status"].isin(status_sel)]
-            df = df[df["appt_type"].isin(type_sel)]
-        st.markdown('<div class="table-top"><div class="tbl-note">Showing {} appointments</div></div>'.format(len(df)), unsafe_allow_html=True)
-        if df.empty:
-            st.info("No appointments for selected filters.")
-        else:
-            show_cols = ["appointment_id","patient_id","patient_name","doctor_name","date","time","duration","appt_type","status","location"]
-            st.dataframe(df[show_cols].sort_values(["date","time"]), use_container_width=True, height=360)
-            with st.expander("⬇️ Export Current View"):
-                download_df(df[show_cols], "appointments_filtered", "Download")
-
-    # Right: create / modify
-    with colB:
-        st.markdown('<div class="card"><h4 class="section-title">➕ New / Modify Appointment</h4>', unsafe_allow_html=True)
-        patients = DAL.all_patients()
-        doctors = DAL.all_doctors()
-        if patients.empty or doctors.empty:
-            st.warning("Need at least one patient and one doctor to create appointments.")
-        else:
-            pcol = st.columns(1)
-            sel_patient_name = pcol[0].selectbox("Patient", options=patients["full_name"].tolist())
-            sel_patient = patients[patients["full_name"]==sel_patient_name].iloc[0].to_dict()
-
-            dcol = st.columns(1)
-            sel_doctor_name = dcol[0].selectbox("Doctor", options=doctors["full_name"].tolist())
-            sel_doctor = doctors[doctors["full_name"]==sel_doctor_name].iloc[0].to_dict()
-
-            tcol = st.columns(2)
-            appt_type = tcol[0].selectbox("Type", list(APPT_TYPES.keys()))
-            duration = APPT_TYPES[appt_type]["minutes"]
-            days = next_weekdays(7)
-            sel_day = tcol[1].selectbox("Date", days)
-
-            # Generate available times
-            taken_today = DAL.doctor_appointments(sel_doctor["doctor_id"], sel_day)
-            taken_times = taken_today["time"].tolist() if not taken_today.empty else []
-            slots = generate_slots_for_day(sel_doctor, sel_day, duration)
-            slots = remove_conflicts(slots, taken_times, duration)
-
-            scol = st.columns(2)
-            if len(slots) == 0:
-                st.info("No slots available for selected date. Try another date.")
-                sel_time = None
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("📋 Appointments — View / Reschedule / Cancel")
+    appts_df = DAL.all_appointments_df()
+    if appts_df.empty:
+        st.info("No appointments scheduled yet.")
+    else:
+        # filter controls
+        col1, col2, col3 = st.columns([2, 1, 1])
+        q = col1.text_input("Search by patient name or appointment ID")
+        date_filter = col2.date_input("Date (optional)", value=None)
+        status_filter = col3.selectbox("Status", options=["All", "Confirmed", "Cancelled"], index=0)
+        filtered = appts_df.copy()
+        if q:
+            filtered = filtered[filtered["patient_name"].str.contains(q, case=False, na=False) | filtered["appointment_id"].str.contains(q, na=False)]
+        if date_filter:
+            filtered = filtered[filtered["date"] == date_filter.strftime("%Y-%m-%d")]
+        if status_filter != "All":
+            filtered = filtered[filtered["status"] == status_filter]
+        st.dataframe(filtered[["appointment_id", "patient_name", "doctor_name", "date", "time", "appt_type", "status"]], use_container_width=True, height=360)
+        # Manage one appointment by ID
+        st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+        st.subheader("Manage Appointment")
+        aid = st.text_input("Enter Appointment ID", placeholder="APT123456")
+        if st.button("Load Appointment"):
+            if not aid.strip():
+                st.error("Enter an appointment ID.")
             else:
-                sel_time = scol[0].selectbox("Time", slots)
-            notes = scol[1].text_input("Notes", placeholder="Optional")
-
-            loc = st.text_input("Location", value=sel_doctor.get("location","Main Clinic - Downtown"))
-            existing_id = st.text_input("Existing Appointment ID (to reschedule/cancel)", placeholder="APT123456")
-
-            cbtn1, cbtn2 = st.columns(2)
-            with cbtn1:
-                create_btn = st.button("✅ Confirm Booking", use_container_width=True)
-            with cbtn2:
-                cancel_btn = st.button("🛑 Cancel Appointment", use_container_width=True)
-
-            if create_btn:
-                if not sel_time:
-                    st.error("Select a valid time.")
+                app = DAL.get_appointment(aid.strip())
+                if not app:
+                    st.error("Appointment not found.")
                 else:
-                    data = {
-                        "appointment_id": existing_id.strip() or None,
-                        "patient_id": sel_patient["patient_id"],
-                        "doctor_id": sel_doctor["doctor_id"],
-                        "doctor_name": sel_doctor["full_name"],
-                        "date": sel_day,
-                        "time": sel_time,
-                        "duration": duration,
-                        "appt_type": appt_type,
-                        "location": loc,
-                        "status": "Confirmed",
-                        "booking_time": now_str(),
-                        "notes": notes
-                    }
-                    aid = DAL.upsert_appointment(data)
-                    st.success(f"Appointment confirmed: {aid}")
-                    # Create simulated reminders
-                    # 72h, 24h, 4h prior
-                    appt_dt = datetime.strptime(f"{sel_day} {sel_time}", "%Y-%m-%d %H:%M")
-                    r1 = (appt_dt - timedelta(hours=72)).strftime("%Y-%m-%d %H:%M")
-                    r2 = (appt_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
-                    r3 = (appt_dt - timedelta(hours=4)).strftime("%Y-%m-%d %H:%M")
-                    msg1 = f"Reminder: {sel_patient['full_name']} has {appt_type.lower()} with {sel_doctor['full_name']} on {sel_day} at {sel_time}. Please complete intake form."
-                    msg2 = "Interactive check: Have you completed the intake form? Is the visit confirmed?"
-                    msg3 = "Final reminder: Your appointment is in 4 hours. Reply C to confirm or X to cancel."
-                    for ch, msg, ts in [("Email",msg1,r1), ("SMS",msg1,r1), ("Email",msg2,r2), ("SMS",msg2,r2), ("Email",msg3,r3), ("SMS",msg3,r3)]:
-                        DAL.create_reminder(aid, ts, ch, msg, "Scheduled")
-                    st.balloons()
-                    st.experimental_rerun()
-
-            if cancel_btn:
-                if not existing_id.strip():
-                    st.error("Enter an existing Appointment ID to cancel.")
-                else:
-                    app = DAL.get_appointment(existing_id.strip())
-                    if not app:
-                        st.error("Appointment not found.")
-                    else:
+                    st.markdown(f"**Appointment:** {app['appointment_id']} — {app['date']} {app['time']} with {app['doctor_name']}")
+                    cols = st.columns(3)
+                    new_date = cols[0].date_input("New Date", value=datetime.strptime(app["date"], "%Y-%m-%d").date())
+                    # compute available times based on doctor
+                    doc = DAL.get_doctor(app["doctor_id"])
+                    cand_slots = generate_slots(doc, new_date.strftime("%Y-%m-%d"), app["duration"])
+                    taken_df = DAL.appointments_by_doctor_date(doc["doctor_id"], new_date.strftime("%Y-%m-%d"))
+                    taken = taken_df["time"].tolist() if not taken_df.empty else []
+                    free = filter_taken_slots(cand_slots, taken, app["duration"])
+                    new_time = cols[1].selectbox("New Time", options=free) if free else None
+                    if cols[2].button("Reschedule"):
+                        if not new_time:
+                            st.error("No free time selected.")
+                        else:
+                            app["date"] = new_date.strftime("%Y-%m-%d")
+                            app["time"] = new_time
+                            DAL.upsert_appointment(app)
+                            st.success("Appointment rescheduled.")
+                            st.experimental_rerun()
+                    if st.button("Cancel Appointment"):
                         app["status"] = "Cancelled"
                         DAL.upsert_appointment(app)
-                        st.warning(f"Appointment {existing_id.strip()} cancelled.")
+                        st.warning("Appointment cancelled.")
                         st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # Appointment detail inspector
-    st.markdown('<div class="hr"></div><h4>🔎 Appointment Inspector</h4>', unsafe_allow_html=True)
-    sel_id = st.text_input("Enter Appointment ID to view", placeholder="APT123456")
-    if sel_id.strip():
-        app = DAL.get_appointment(sel_id.strip())
-        if not app:
-            st.error("No appointment found for that ID.")
-        else:
-            st.markdown(f"""
-            <div class="card">
-              <div><span class="app-id">{app['appointment_id']}</span></div>
-              <p><span class="label">Patient ID:</span> {app['patient_id']}</p>
-              <p><span class="label">Doctor:</span> {app['doctor_name']} &nbsp;|&nbsp; <span class="label">Type:</span> {app['appt_type']}</p>
-              <p><span class="label">Date/Time:</span> {app['date']} {app['time']} &nbsp;|&nbsp; <span class="label">Duration:</span> {app['duration']}m</p>
-              <p><span class="label">Location:</span> {app['location']} &nbsp;|&nbsp; <span class="label">Status:</span> {app['status']}</p>
-              <p><span class="label">Notes:</span> {safe_str(app['notes'])}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Reminders
-            rms = DAL.reminders_for_appointment(app["appointment_id"])
-            st.subheader("📨 Reminders")
-            if rms.empty:
-                st.caption("No reminders.")
-            else:
-                st.dataframe(rms, use_container_width=True, height=220)
-                download_df(rms, f"reminders_{app['appointment_id']}", "Download Reminders")
-
-# --------------------------------------------------------------------------------------
-# ANALYTICS
-# --------------------------------------------------------------------------------------
-
-if nav == "Analytics":
-    st.markdown('<div class="section"><h3 class="section-title">📊 Analytics & Insights</h3>', unsafe_allow_html=True)
-
-    appts = DAL.all_appointments()
-    pats = DAL.all_patients()
-    docs = DAL.all_doctors()
-
-    if appts.empty:
-        st.info("No appointment data available.")
+# -----------------------------
+# Patients CRUD
+# -----------------------------
+if nav == "Patients":
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("👥 Patients — Search / Add / Edit / Delete")
+    q = st.text_input("Search (name, phone, email)")
+    if q:
+        df = DAL.search_patients(q)
     else:
-        appts["dt"] = pd.to_datetime(appts["date"], errors="coerce")
-        appts["weekday"] = appts["dt"].dt.day_name()
-        appts["month"] = appts["dt"].dt.to_period("M").astype(str)
+        df = DAL.all_patients_df()
+    if df.empty:
+        st.info("No patients found.")
+    else:
+        st.dataframe(df[["patient_id", "full_name", "dob", "phone", "email", "insurance_company", "patient_type"]], use_container_width=True, height=300)
 
-        colA, colB = st.columns(2)
-        with colA:
-            st.markdown("**Appointments by Month**")
-            by_month = appts.groupby("month").size().reset_index(name="count").sort_values("month")
-            st.bar_chart(by_month.set_index("month"))
-        with colB:
-            st.markdown("**Appointments by Weekday**")
-            by_wd = appts.groupby("weekday").size().reset_index(name="count")
-            # reorder
-            wd_order = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-            by_wd["weekday"] = pd.Categorical(by_wd["weekday"], categories=wd_order, ordered=True)
-            by_wd = by_wd.sort_values("weekday")
-            st.bar_chart(by_wd.set_index("weekday"))
-
-        st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-        colC, colD = st.columns(2)
-        with colC:
-            st.markdown("**Doctor Workload**")
-            by_doc = appts.groupby("doctor_name").size().reset_index(name="count").sort_values("count", ascending=False)
-            st.bar_chart(by_doc.set_index("doctor_name"))
-        with colD:
-            st.markdown("**Patient Type Mix**")
-            if pats.empty:
-                st.caption("No patients.")
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.subheader("Add or Edit Patient")
+    with st.form("patient_upsert"):
+        col1, col2 = st.columns(2)
+        pid = col1.text_input("Patient ID (leave blank to create new)")
+        first = col1.text_input("First Name")
+        last = col2.text_input("Last Name")
+        dob = col1.date_input("DOB", value=date(1990, 1, 1))
+        phone = col2.text_input("Phone")
+        email = col1.text_input("Email")
+        insurance_company = col2.text_input("Insurance Company")
+        member_id = col1.text_input("Member ID")
+        group_number = col2.text_input("Group Number")
+        patient_type = col1.selectbox("Patient Type", options=["New", "Returning"])
+        last_visit = col2.text_input("Last Visit (YYYY-MM-DD)", value="")
+        save = st.form_submit_button("Save Patient")
+        if save:
+            if not first or not last or not phone:
+                st.error("First name, last name and phone are required.")
             else:
-                mix = pats.groupby("patient_type").size().reset_index(name="count")
-                st.bar_chart(mix.set_index("patient_type"))
+                pdata = {
+                    "patient_id": pid.strip() or None,
+                    "first_name": first.strip(),
+                    "last_name": last.strip(),
+                    "full_name": f"{first.strip()} {last.strip()}",
+                    "dob": dob.strftime("%Y-%m-%d"),
+                    "phone": phone.strip(),
+                    "email": email.strip(),
+                    "insurance_company": insurance_company.strip(),
+                    "member_id": member_id.strip(),
+                    "group_number": group_number.strip(),
+                    "patient_type": patient_type,
+                    "last_visit": last_visit.strip() or None,
+                }
+                new_pid = DAL.upsert_patient(pdata)
+                st.success(f"Saved patient {pdata['full_name']} (ID: {new_pid})")
+                st.experimental_rerun()
 
-        st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-        with st.expander("📥 Export Datasets"):
-            download_df(appts.drop(columns=["dt"], errors="ignore"), "analytics_appointments", "Appointments")
-            download_df(pats, "analytics_patients", "Patients")
-            download_df(docs, "analytics_doctors", "Doctors")
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.subheader("Delete Patient")
+    pid_del = st.text_input("Enter Patient ID to delete")
+    if st.button("Delete Patient"):
+        if not pid_del.strip():
+            st.error("Provide a patient ID.")
+        else:
+            DAL.delete_patient(pid_del.strip())
+            st.warning(f"Deleted patient {pid_del.strip()}")
+            st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+# -----------------------------
+# Doctors CRUD
+# -----------------------------
+if nav == "Doctors":
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("👨‍⚕️ Doctors — Manage availability & profiles")
+    docs_df = DAL.all_doctors_df()
+    if docs_df.empty:
+        st.info("No doctors found.")
+    else:
+        # show doctor table with important columns
+        display_cols = ["doctor_id", "full_name", "specialty", "location", "weekday_availability", "start_time", "end_time"]
+        st.dataframe(docs_df[display_cols], use_container_width=True, height=300)
 
-# --------------------------------------------------------------------------------------
-# SETTINGS (Import/Export, Data Reset)
-# --------------------------------------------------------------------------------------
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.subheader("Add / Edit Doctor")
+    with st.form("doctor_form"):
+        did = st.text_input("Doctor ID (leave blank to create new)")
+        full_name = st.text_input("Full Name")
+        specialty = st.text_input("Specialty", value="Allergy & Immunology")
+        location = st.text_input("Location", value="Main Clinic - Downtown")
+        start_time = st.text_input("Start Time (HH:MM)", value="09:00")
+        end_time = st.text_input("End Time (HH:MM)", value="17:00")
+        lunch_start = st.text_input("Lunch Start (HH:MM)", value="12:30")
+        lunch_end = st.text_input("Lunch End (HH:MM)", value="13:30")
+        # weekday availability
+        cols = st.columns(5)
+        wk = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        avail = {}
+        for i, w in enumerate(wk):
+            avail[w] = cols[i].checkbox(w, value=True)
+        saved = st.form_submit_button("Save Doctor")
+        if saved:
+            if not full_name.strip():
+                st.error("Doctor name required.")
+            else:
+                d = {
+                    "doctor_id": did.strip() or None,
+                    "full_name": full_name.strip(),
+                    "specialty": specialty.strip(),
+                    "weekday_availability": avail,
+                    "start_time": start_time.strip(),
+                    "end_time": end_time.strip(),
+                    "lunch_start": lunch_start.strip(),
+                    "lunch_end": lunch_end.strip(),
+                    "location": location.strip(),
+                }
+                new_id = DAL.upsert_doctor(d)
+                st.success(f"Saved doctor {full_name} (ID: {new_id})")
+                st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
+# -----------------------------
+# Reminders & Exports
+# -----------------------------
+if nav == "Reminders & Exports":
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("🔔 Reminders — Simulated sends & export")
+    reminders_df = DAL.all_reminders_df()
+    if reminders_df.empty:
+        st.info("No reminders scheduled.")
+    else:
+        st.dataframe(reminders_df[["reminder_id", "appointment_id", "remind_at", "channel", "state"]], use_container_width=True, height=300)
+    # Simulate sending reminders whose time <= now (for demo)
+    if st.button("Simulate sending due reminders now"):
+        now = datetime.now()
+        to_send = reminders_df[reminders_df["state"] == "Scheduled"]
+        sent_count = 0
+        for _, r in to_send.iterrows():
+            # treat remind_at as YYYY-MM-DD HH:MM; if <= now then "send"
+            try:
+                remind_dt = datetime.strptime(r["remind_at"], "%Y-%m-%d %H:%M")
+            except:
+                # if parsing fails, send them all in simulation
+                remind_dt = now
+            if remind_dt <= now:
+                # simulate send
+                st.write(f"Simulated send -> {r['channel']} for {r['appointment_id']}: {r['message']}")
+                # mark as sent in DB
+                conn = get_conn()
+                cur = conn.cursor()
+                cur.execute("UPDATE reminders SET state='Sent' WHERE reminder_id=?", (r["reminder_id"],))
+                conn.commit()
+                conn.close()
+                sent_count += 1
+        if sent_count == 0:
+            st.info("No scheduled reminders were due at this time (simulation).")
+        else:
+            st.success(f"Simulated sending {sent_count} reminder(s).")
+        st.experimental_rerun()
+
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.subheader("Export Data")
+    appts_df = DAL.all_appointments_df()
+    pats_df = DAL.all_patients_df()
+    docs_df = DAL.all_doctors_df()
+    if not appts_df.empty:
+        st.download_button("Export Appointments (CSV)", df_to_csv_bytes(appts_df), file_name="appointments_export.csv", mime="text/csv")
+        st.download_button("Export Appointments (Excel)", df_to_excel_bytes(appts_df), file_name="appointments_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if not pats_df.empty:
+        st.download_button("Export Patients (CSV)", df_to_csv_bytes(pats_df), file_name="patients_export.csv", mime="text/csv")
+    if not docs_df.empty:
+        st.download_button("Export Doctors (CSV)", df_to_csv_bytes(docs_df), file_name="doctors_export.csv", mime="text/csv")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# Settings / Import & Reset
+# -----------------------------
 if nav == "Settings":
-    st.markdown(
-    '<div class="section"><h3 class="section-title">⚙️ Settings</h3></div>',
-    unsafe_allow_html=True
-)
+    st.markdown('<div class="section">', unsafe_allow_html=True)
+    st.subheader("⚙️ Settings — Import Data / Reset DB")
+    st.markdown("**Import sample patients CSV**")
+    uploaded = st.file_uploader("Upload patients CSV (optional, will append)", type=["csv"])
+    if uploaded is not None:
+        try:
+            df = pd.read_csv(uploaded)
+            imported = 0
+            for _, row in df.iterrows():
+                pdata = {
+                    "patient_id": row.get("patient_id", None),
+                    "first_name": row.get("first_name", ""),
+                    "last_name": row.get("last_name", ""),
+                    "full_name": row.get("full_name", f"{row.get('first_name','')} {row.get('last_name','')}"),
+                    "dob": row.get("dob", ""),
+                    "phone": row.get("phone", ""),
+                    "email": row.get("email", ""),
+                    "insurance_company": row.get("insurance_company", ""),
+                    "member_id": row.get("member_id", ""),
+                    "group_number": row.get("group_number", ""),
+                    "patient_type": row.get("patient_type", "New"),
+                    "last_visit": row.get("last_visit", None),
+                }
+                DAL.upsert_patient(pdata)
+                imported += 1
+            st.success(f"Imported {imported} patients.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Failed to import: {e}")
 
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.markdown("**Doctor schedule (Excel)**")
+    if os.path.exists(DOCTOR_SCHEDULE_XLSX):
+        st.markdown(f"- Found schedule file: `{DOCTOR_SCHEDULE_XLSX}`")
+        if st.button("Download sample doctor_schedules.xlsx"):
+            with open(DOCTOR_SCHEDULE_XLSX, "rb") as f:
+                st.download_button("Download doctor schedule", f, file_name="doctor_schedules.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.info("Doctor schedule file not found; a sample will be generated from doctors table.")
+    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    st.markdown("#### Dangerous actions")
+    if st.checkbox("Enable destructive actions"):
+        if st.button("Reset Database to demo state (Deletes medicare.db and recreates)"):
+            if os.path.exists(DB_PATH):
+                os.remove(DB_PATH)
+            init_db()
+            seed_demo_patients(50)
+            seed_demo_doctors()
+            st.success("Database reset complete.")
+            st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# Footer + Helpful Links (intake form, case-study PDF)
+# -----------------------------
+st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+col1, col2 = st.columns([1, 2])
+with col1:
+    if os.path.exists(INTAKE_FORM_PDF):
+        with open(INTAKE_FORM_PDF, "rb") as f:
+            st.download_button("📄 Intake Form (PDF)", f, file_name="New_Patient_Intake_Form.pdf", mime="application/pdf")
+    else:
+        st.caption("Intake form not available.")
+with col2:
+    if os.path.exists(CASE_STUDY_PDF):
+        with open(CASE_STUDY_PDF, "rb") as f:
+            st.download_button("📁 Case-Study Brief (PDF)", f, file_name="Data_Science_Intern_RagaAI.pdf", mime="application/pdf")
+    st.caption("Use Settings to import sample patient CSV or reset DB (demo mode).")
+
+st.markdown("<div style='margin-top:10px; font-size:0.9rem' class='small-muted'>Built for the AI Scheduling Agent case study — demonstrates scheduling flow, reminders, export & basic admin operations.</div>", unsafe_allow_html=True)
