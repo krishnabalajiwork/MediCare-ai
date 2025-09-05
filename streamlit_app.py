@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import random
 import os
 
@@ -221,7 +221,7 @@ st.markdown("""
         color: #d97706 !important;
     }
 
-    /* Appointment details */
+    /* Appointment details - FIXED */
     .appointment-card {
         background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
         border: 2px solid #0ea5e9;
@@ -250,17 +250,26 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
+    .appointment-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-top: 1.5rem;
+    }
+
+    .appointment-detail-item {
+        margin: 0.75rem 0;
+        color: #0f172a !important;
+        font-weight: 500;
+    }
+
+    .appointment-detail-item strong {
+        color: #1e40af !important;
+    }
+
     .appointment-card h3 {
         color: #0ea5e9 !important;
-    }
-
-    .appointment-card p {
-        color: #0f172a !important;
-        margin: 0.5rem 0;
-    }
-
-    .appointment-card strong {
-        color: #1e40af !important;
+        margin: 0;
     }
 
     /* Reminder system */
@@ -477,6 +486,10 @@ st.markdown("""
             padding-left: 1rem;
             padding-right: 1rem;
         }
+        .appointment-details-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -515,13 +528,11 @@ class AISchedulingAgent:
         self.schedule_df = load_schedule_data()
 
     def greet_patient(self):
-        return """
-        🏥 **Welcome to MediCare Allergy & Wellness Center!**
+        return """🏥 **Welcome to MediCare Allergy & Wellness Center!**
 
-        I'm your AI scheduling assistant. I'll help you book an appointment with one of our specialists.
+I'm your AI scheduling assistant. I'll help you book an appointment with one of our specialists.
 
-        To get started, I'll need some basic information:
-        """
+To get started, I'll need some basic information:"""
 
     def search_patient(self, first_name, last_name, dob=None, phone=None):
         """Search for existing patient in database"""
@@ -743,7 +754,14 @@ def main():
                 col_a, col_b = st.columns(2)
                 with col_a:
                     first_name = st.text_input("First Name *", key="first_name", placeholder="Enter your first name")
-                    dob = st.date_input("Date of Birth *", key="dob")
+                    # FIXED: Date of birth range from 1960 to current year
+                    dob = st.date_input(
+                        "Date of Birth *", 
+                        key="dob", 
+                        min_value=date(1960, 1, 1),
+                        max_value=date.today(),
+                        value=date(1990, 1, 1)
+                    )
                 with col_b:
                     last_name = st.text_input("Last Name *", key="last_name", placeholder="Enter your last name")
                     phone = st.text_input("Phone Number *", placeholder="(555) 123-4567", key="phone")
@@ -904,7 +922,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-            # Appointment details card
+            # FIXED: Appointment details card with proper formatting
             st.markdown(f"""
             <div class="appointment-card">
                 <div class="appointment-header">
@@ -912,18 +930,34 @@ def main():
                     <h3>Your Appointment Details</h3>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                <div class="appointment-details-grid">
                     <div>
-                        <p><strong>👤 Patient:</strong> {appointment['patient_name']}</p>
-                        <p><strong>👨‍⚕️ Doctor:</strong> {appointment['doctor']}</p>
-                        <p><strong>📅 Date:</strong> {appointment['date']}</p>
-                        <p><strong>⏰ Time:</strong> {appointment['time']}</p>
+                        <div class="appointment-detail-item">
+                            <strong>👤 Patient:</strong> {appointment['patient_name']}
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>👨‍⚕️ Doctor:</strong> {appointment['doctor']}
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>📅 Date:</strong> {appointment['date']}
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>⏰ Time:</strong> {appointment['time']}
+                        </div>
                     </div>
                     <div>
-                        <p><strong>⏱️ Duration:</strong> {appointment['duration']} minutes</p>
-                        <p><strong>🏥 Location:</strong> {appointment['location']}</p>
-                        <p><strong>📋 Type:</strong> {appointment['patient_type']}</p>
-                        <p><strong>✅ Status:</strong> {appointment['status']}</p>
+                        <div class="appointment-detail-item">
+                            <strong>⏱️ Duration:</strong> {appointment['duration']} minutes
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>🏥 Location:</strong> {appointment['location']}
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>📋 Type:</strong> {appointment['patient_type']}
+                        </div>
+                        <div class="appointment-detail-item">
+                            <strong>✅ Status:</strong> {appointment['status']}
+                        </div>
                     </div>
                 </div>
             </div>
