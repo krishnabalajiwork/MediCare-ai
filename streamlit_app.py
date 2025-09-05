@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for medical/hospital theme
+# Custom CSS for medical/hospital theme with PROPER SPACING
 st.markdown("""
 <style>
     /* Import medical fonts */
@@ -78,44 +78,46 @@ st.markdown("""
     .status-card {
         background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         color: white !important;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
     }
 
     .status-card h4 {
-        margin: 0;
+        margin: 0 0 0.75rem 0;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 1rem;
         color: white !important;
     }
 
     .status-card p {
-        margin: 0.25rem 0 0 0;
-        font-size: 0.85rem;
+        margin: 0.5rem 0 0 0;
+        font-size: 0.9rem;
         color: rgba(255,255,255,0.95) !important;
+        line-height: 1.4;
     }
 
     /* Conversation styling */
     .chat-container {
         background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
         margin-bottom: 2rem;
     }
 
     .ai-message {
         background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-        padding: 1rem 1.5rem;
-        border-radius: 12px 12px 12px 4px;
-        margin: 1rem 0;
+        padding: 1.25rem 1.75rem;
+        border-radius: 16px 16px 16px 6px;
+        margin: 1.5rem 0;
         border-left: 4px solid #1e40af;
         font-family: 'Inter', sans-serif;
         color: #0f172a !important;
         font-weight: 500;
+        box-shadow: 0 2px 8px rgba(30, 64, 175, 0.1);
     }
 
     .ai-message strong {
@@ -124,14 +126,15 @@ st.markdown("""
 
     .user-message {
         background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-        padding: 1rem 1.5rem;
-        border-radius: 12px 12px 4px 12px;
-        margin: 1rem 0;
+        padding: 1.25rem 1.75rem;
+        border-radius: 16px 16px 6px 16px;
+        margin: 1.5rem 0;
         border-right: 4px solid #059669;
         font-family: 'Inter', sans-serif;
         text-align: right;
         color: #0f172a !important;
         font-weight: 500;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.1);
     }
 
     .user-message strong {
@@ -141,43 +144,45 @@ st.markdown("""
     /* Form styling */
     .medical-form {
         background: white;
-        padding: 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 2.5rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
-        margin: 1rem 0;
+        margin: 2rem 0;
     }
 
     .form-section {
-        margin-bottom: 2rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 2.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #e2e8f0;
     }
 
     .form-section:last-child {
         border-bottom: none;
+        margin-bottom: 0;
     }
 
     .form-section h3 {
         color: #1e40af !important;
         font-family: 'Inter', sans-serif;
         font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
     }
 
-    /* Alert boxes */
+    /* Alert boxes with proper spacing */
     .success-alert {
         background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-        border-left: 4px solid #059669;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
+        border-left: 6px solid #059669;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin: 2rem 0;
         color: #0f172a !important;
         font-weight: 500;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
     }
 
     .success-alert strong {
@@ -186,12 +191,13 @@ st.markdown("""
 
     .info-alert {
         background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-        border-left: 4px solid #1e40af;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
+        border-left: 6px solid #1e40af;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin: 2rem 0;
         color: #0f172a !important;
         font-weight: 500;
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
     }
 
     .info-alert strong {
@@ -200,109 +206,261 @@ st.markdown("""
 
     .warning-alert {
         background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
-        border-left: 4px solid #d97706;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
+        border-left: 6px solid #d97706;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin: 2rem 0;
         color: #0f172a !important;
         font-weight: 500;
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.15);
     }
 
     .warning-alert strong {
         color: #d97706 !important;
     }
 
-    /* FIXED: Appointment Card Styling */
+    /* Appointment Card with Perfect Spacing */
     .appointment-card {
         background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border: 2px solid #0ea5e9;
-        border-radius: 16px;
-        padding: 2rem;
-        margin: 2rem 0;
-        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+        border: 3px solid #0ea5e9;
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin: 3rem 0;
+        box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
         color: #0f172a !important;
     }
 
     .appointment-header {
         text-align: center;
-        margin-bottom: 2rem;
-        padding-bottom: 1rem;
+        margin-bottom: 2.5rem;
+        padding-bottom: 2rem;
         border-bottom: 2px solid #0ea5e9;
     }
 
     .appointment-id {
-        background: #0ea5e9;
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
         color: white !important;
-        padding: 0.75rem 1.5rem;
-        border-radius: 25px;
+        padding: 1rem 2rem;
+        border-radius: 30px;
         font-weight: 600;
         display: inline-block;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
         font-family: 'Inter', sans-serif;
-        font-size: 1rem;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
     }
 
     .appointment-title {
         color: #0ea5e9 !important;
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.75rem;
         font-weight: 600;
+        font-family: 'Inter', sans-serif;
     }
 
     .appointment-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 3rem;
-        margin-top: 2rem;
+        gap: 4rem;
+        margin-top: 2.5rem;
     }
 
     .appointment-item {
         display: flex;
         align-items: center;
-        margin: 1rem 0;
-        padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.7);
-        border-radius: 8px;
-        border-left: 3px solid #0ea5e9;
+        margin: 1.25rem 0;
+        padding: 1.25rem 1.5rem;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 12px;
+        border-left: 4px solid #0ea5e9;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .appointment-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
     }
 
     .appointment-icon {
-        font-size: 1.2rem;
-        margin-right: 0.75rem;
+        font-size: 1.4rem;
+        margin-right: 1rem;
+        width: 2rem;
+        text-align: center;
     }
 
     .appointment-label {
         font-weight: 600;
         color: #1e40af !important;
-        margin-right: 0.5rem;
+        margin-right: 0.75rem;
+        min-width: 5rem;
     }
 
     .appointment-value {
         color: #0f172a !important;
         font-weight: 500;
+        flex: 1;
+    }
+
+    /* Reminder System with Perfect Spacing */
+    .reminder-system {
+        background: white;
+        border-radius: 20px;
+        padding: 3rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        border: 2px solid #e2e8f0;
+        margin: 3rem 0;
+    }
+
+    .reminder-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .reminder-title {
+        color: #d97706 !important;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .reminder-subtitle {
+        color: #64748b !important;
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 400;
+    }
+
+    .reminder-cards-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    .reminder-card {
+        background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+        border: 2px solid #d97706;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 6px 20px rgba(217, 119, 6, 0.15);
+        color: #0f172a !important;
+        transition: all 0.3s ease;
+        height: auto;
+        min-height: 300px;
+    }
+
+    .reminder-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(217, 119, 6, 0.25);
+    }
+
+    .reminder-card h4 {
+        color: #d97706 !important;
+        margin: 0 0 1.5rem 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-align: center;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #d97706;
+    }
+
+    .reminder-card p {
+        color: #0f172a !important;
+        margin: 1rem 0;
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .reminder-card strong {
+        color: #d97706 !important;
+    }
+
+    .reminder-card ul {
+        margin: 1rem 0;
+        padding-left: 1.5rem;
+    }
+
+    .reminder-card li {
+        color: #0f172a !important;
+        margin: 0.5rem 0;
+        line-height: 1.5;
+    }
+
+    /* Info Panel with Proper Spacing */
+    .info-panel {
+        background: white;
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        border: 2px solid #e2e8f0;
+        margin-top: 2rem;
+    }
+
+    .info-panel h3 {
+        color: #1e40af !important;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .info-panel .alert-item {
+        margin: 1.5rem 0;
+        padding: 1.25rem;
+        border-radius: 10px;
+    }
+
+    .info-panel .warning-alert {
+        margin: 1.5rem 0;
+    }
+
+    .info-panel .info-alert {
+        margin: 1.5rem 0;
+    }
+
+    .info-panel .success-alert {
+        margin: 1.5rem 0;
     }
 
     /* Metrics styling */
     .metric-card {
         background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
+        padding: 2rem;
+        border-radius: 16px;
         text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 1rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        border: 2px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     }
 
     .metric-number {
-        font-size: 2rem;
+        font-size: 2.5rem;
         font-weight: 700;
         color: #1e40af !important;
         font-family: 'Inter', sans-serif;
+        margin-bottom: 0.5rem;
     }
 
     .metric-label {
         color: #64748b !important;
-        font-size: 0.9rem;
+        font-size: 1rem;
         font-weight: 500;
         margin-top: 0.5rem;
     }
@@ -312,87 +470,60 @@ st.markdown("""
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
         color: white !important;
         border: none;
-        border-radius: 8px;
-        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        padding: 1rem 2.5rem;
         font-weight: 600;
         font-family: 'Inter', sans-serif;
-        box-shadow: 0 2px 8px rgba(30, 64, 175, 0.3);
-        transition: all 0.2s ease;
+        font-size: 1rem;
+        box-shadow: 0 4px 16px rgba(30, 64, 175, 0.3);
+        transition: all 0.3s ease;
     }
 
     .stButton > button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(30, 64, 175, 0.4);
     }
 
     .success-button > button {
         background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+        box-shadow: 0 4px 16px rgba(5, 150, 105, 0.3);
         color: white !important;
-    }
-
-    /* Reminder cards */
-    .reminder-system {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-        margin: 2rem 0;
-    }
-
-    .reminder-card {
-        background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-        border-left: 4px solid #d97706;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1);
-        color: #0f172a !important;
-    }
-
-    .reminder-card h4 {
-        color: #d97706 !important;
-        margin-top: 0;
-    }
-
-    .reminder-card p {
-        color: #0f172a !important;
-    }
-
-    .reminder-card strong {
-        color: #d97706 !important;
     }
 
     /* Email preview */
     .email-preview {
         background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin: 2rem 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
 
     .email-preview h4 {
         color: #1e40af !important;
         margin-top: 0;
+        font-size: 1.25rem;
     }
 
     .email-preview p {
         color: #0f172a !important;
+        line-height: 1.6;
     }
 
     .email-content {
         background: white;
-        border-left: 4px solid #1e40af;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 4px;
+        border-left: 6px solid #1e40af;
+        padding: 2rem;
+        margin: 2rem 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(30, 64, 175, 0.1);
     }
 
     .email-content p {
         color: #0f172a !important;
-        margin: 0.5rem 0;
+        margin: 1rem 0;
+        line-height: 1.6;
     }
 
     .email-content strong {
@@ -401,80 +532,58 @@ st.markdown("""
 
     .critical-instructions {
         background: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: 4px;
-        padding: 1rem;
-        margin: 1rem 0;
+        border: 2px solid #fecaca;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 2rem 0;
     }
 
     .critical-instructions p {
         color: #991b1b !important;
-        margin: 0.5rem 0;
+        margin: 0.75rem 0;
+        font-weight: 500;
     }
 
     .critical-instructions strong {
         color: #dc2626 !important;
     }
 
-    /* Info panel */
-    .info-panel {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 2rem;
-    }
-
-    .info-panel h3 {
-        color: #1e40af !important;
-        font-family: 'Inter', sans-serif;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
-
-    .info-panel p {
-        color: #0f172a !important;
-        margin: 0;
-    }
-
-    .info-panel strong {
-        color: #1e40af !important;
-    }
-
     /* Completion card */
     .completion-card {
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
         color: white !important;
-        border-radius: 16px;
-        padding: 3rem;
-        margin: 2rem 0;
+        border-radius: 20px;
+        padding: 4rem;
+        margin: 3rem 0;
         text-align: center;
-        box-shadow: 0 8px 24px rgba(30, 64, 175, 0.3);
+        box-shadow: 0 12px 32px rgba(30, 64, 175, 0.3);
     }
 
     .completion-card h2 {
         margin-top: 0;
-        font-size: 2rem;
+        font-size: 2.5rem;
         color: white !important;
+        margin-bottom: 1.5rem;
     }
 
     .completion-card p {
         color: rgba(255,255,255,0.95) !important;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
+        font-size: 1.3rem;
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
     }
 
     .next-steps {
         background: rgba(255,255,255,0.2);
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
     }
 
     .next-steps p {
         color: white !important;
-        margin: 0.25rem 0;
+        margin: 0.75rem 0;
+        font-size: 1.1rem;
     }
 
     .next-steps strong {
@@ -497,7 +606,11 @@ st.markdown("""
         }
         .appointment-grid {
             grid-template-columns: 1fr;
-            gap: 1rem;
+            gap: 2rem;
+        }
+        .reminder-cards-container {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
         }
     }
 </style>
@@ -599,8 +712,7 @@ To get started, I'll need some basic information:"""
         return booking_data
 
 def display_appointment_card(appointment):
-    """FIXED: Function to properly display appointment details as HTML, not code"""
-    # Create the HTML as a single string - NO CODE BLOCKS
+    """Display appointment details with perfect spacing"""
     appointment_html = f"""
 <div class="appointment-card">
     <div class="appointment-header">
@@ -655,9 +767,56 @@ def display_appointment_card(appointment):
     </div>
 </div>
 """
-
-    # CRITICAL: Use st.markdown with unsafe_allow_html=True - NO OTHER METHOD
     st.markdown(appointment_html, unsafe_allow_html=True)
+
+def display_reminder_system(appointment):
+    """Display reminder system with perfect spacing and formatting"""
+    appointment_date = datetime.strptime(appointment['date'], '%Y-%m-%d')
+    reminder1_date = appointment_date - timedelta(days=3)
+    reminder2_date = appointment_date - timedelta(days=1)
+    reminder3_date = appointment_date - timedelta(hours=4)
+
+    reminder_html = f"""
+<div class="reminder-system">
+    <div class="reminder-header">
+        <h2 class="reminder-title">🔔 Automated Reminder System</h2>
+        <p class="reminder-subtitle">Our intelligent reminder system will keep you informed and ensure you don't miss your appointment.</p>
+    </div>
+    <div class="reminder-cards-container">
+        <div class="reminder-card">
+            <h4>📅 Reminder 1</h4>
+            <p><strong>When:</strong> {reminder1_date.strftime('%Y-%m-%d')}</p>
+            <p><strong>Time:</strong> 72 hours before</p>
+            <p><strong>Type:</strong> Standard reminder</p>
+            <p><strong>Message:</strong> Please complete your intake form</p>
+            <p><strong>Channels:</strong> Email + SMS</p>
+        </div>
+        <div class="reminder-card">
+            <h4>⚠️ Reminder 2</h4>
+            <p><strong>When:</strong> {reminder2_date.strftime('%Y-%m-%d')}</p>
+            <p><strong>Time:</strong> 24 hours before</p>
+            <p><strong>Type:</strong> Interactive check</p>
+            <p><strong>Questions:</strong></p>
+            <ul>
+                <li>Form completed?</li>
+                <li>Visit confirmed?</li>
+            </ul>
+        </div>
+        <div class="reminder-card">
+            <h4>🚨 Final Reminder</h4>
+            <p><strong>When:</strong> {reminder3_date.strftime('%Y-%m-%d %H:%M')}</p>
+            <p><strong>Time:</strong> 4 hours before</p>
+            <p><strong>Type:</strong> Final confirmation</p>
+            <p><strong>Actions:</strong></p>
+            <ul>
+                <li>Confirm attendance</li>
+                <li>Cancel if needed</li>
+            </ul>
+        </div>
+    </div>
+</div>
+"""
+    st.markdown(reminder_html, unsafe_allow_html=True)
 
 def main():
     # Medical Header
@@ -674,8 +833,8 @@ def main():
     # Sidebar with medical dashboard
     with st.sidebar:
         st.markdown("""
-        <div style="text-align: center; padding: 1rem 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 1rem;">
-            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin: 0;">
+        <div style="text-align: center; padding: 1.5rem 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem;">
+            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin: 0; font-size: 1.5rem;">
                 📊 Medical Dashboard
             </h2>
         </div>
@@ -706,8 +865,8 @@ def main():
 
         # System Statistics
         st.markdown("""
-        <div style="margin-top: 2rem;">
-            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1rem;">
+        <div style="margin-top: 2.5rem;">
+            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1.5rem; font-size: 1.25rem;">
                 📈 System Statistics
             </h3>
         </div>
@@ -747,8 +906,8 @@ def main():
 
         # Quick Actions
         st.markdown("""
-        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 2px solid #e2e8f0;">
-            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1rem;">
+        <div style="margin-top: 2.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
+            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1.5rem; font-size: 1.25rem;">
                 ⚡ Quick Actions
             </h3>
         </div>
@@ -778,7 +937,7 @@ def main():
         # Conversation Container
         st.markdown("""
         <div class="chat-container">
-            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; font-size: 1.75rem;">
                 💬 Patient Consultation
             </h2>
         """, unsafe_allow_html=True)
@@ -984,14 +1143,14 @@ def main():
 
             # Success header
             st.markdown("""
-            <div class="success-alert" style="text-align: center; padding: 2rem; margin: 2rem 0; box-shadow: 0 4px 20px rgba(5, 150, 105, 0.2);">
-                <h1 style="color: #059669; font-size: 2.5rem; margin: 0;">🎉</h1>
-                <h2 style="color: #059669; margin: 0.5rem 0;">Appointment Confirmed!</h2>
-                <p style="color: #047857; margin: 0;">Your appointment has been successfully scheduled</p>
+            <div class="success-alert" style="text-align: center; padding: 3rem; margin: 3rem 0; box-shadow: 0 8px 32px rgba(5, 150, 105, 0.2);">
+                <h1 style="color: #059669; font-size: 3rem; margin: 0;">🎉</h1>
+                <h2 style="color: #059669; margin: 1rem 0; font-size: 2rem;">Appointment Confirmed!</h2>
+                <p style="color: #047857; margin: 0; font-size: 1.2rem;">Your appointment has been successfully scheduled</p>
             </div>
             """, unsafe_allow_html=True)
 
-            # FIXED: Use the dedicated function to display appointment card
+            # Display appointment card
             display_appointment_card(appointment)
 
             # Form distribution section
@@ -999,7 +1158,7 @@ def main():
             <div class="medical-form">
                 <div class="form-section">
                     <h3>📧 Patient Intake Form Distribution</h3>
-                    <p style="color: #64748b;">We'll send you a comprehensive intake form to complete before your visit.</p>
+                    <p style="color: #64748b; font-size: 1.1rem; line-height: 1.6;">We'll send you a comprehensive intake form to complete before your visit.</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1051,82 +1210,25 @@ def main():
 
         elif st.session_state.step == 'reminders':
             appointment = st.session_state.appointment_data
-            appointment_date = datetime.strptime(appointment['date'], '%Y-%m-%d')
 
-            # Reminder system header
-            st.markdown("""
-            <div class="reminder-system">
-                <h2 style="color: #d97706; font-family: 'Inter', sans-serif; font-weight: 600; 
-                          display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    🔔 Automated Reminder System
-                </h2>
-                <p style="color: #64748b; margin-bottom: 2rem;">
-                    Our intelligent reminder system will keep you informed and ensure you don't miss your appointment.
-                </p>
-            """, unsafe_allow_html=True)
-
-            # Calculate reminder dates
-            reminder1_date = appointment_date - timedelta(days=3)
-            reminder2_date = appointment_date - timedelta(days=1)
-            reminder3_date = appointment_date - timedelta(hours=4)
-
-            # Reminder cards
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.markdown(f"""
-                <div class="reminder-card">
-                    <h4>📅 Reminder 1</h4>
-                    <p><strong>When:</strong> {reminder1_date.strftime('%Y-%m-%d')}</p>
-                    <p><strong>Time:</strong> 72 hours before</p>
-                    <p><strong>Type:</strong> Standard reminder</p>
-                    <p><strong>Message:</strong> Please complete your intake form</p>
-                    <p><strong>Channels:</strong> Email + SMS</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col2:
-                st.markdown(f"""
-                <div class="reminder-card">
-                    <h4>⚠️ Reminder 2</h4>
-                    <p><strong>When:</strong> {reminder2_date.strftime('%Y-%m-%d')}</p>
-                    <p><strong>Time:</strong> 24 hours before</p>
-                    <p><strong>Type:</strong> Interactive check</p>
-                    <p><strong>Questions:</strong></p>
-                    <ul style="font-size: 0.9rem; margin: 0.5rem 0;">
-                        <li>Form completed?</li>
-                        <li>Visit confirmed?</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col3:
-                st.markdown(f"""
-                <div class="reminder-card">
-                    <h4>🚨 Final Reminder</h4>
-                    <p><strong>When:</strong> {reminder3_date.strftime('%Y-%m-%d %H:%M')}</p>
-                    <p><strong>Time:</strong> 4 hours before</p>
-                    <p><strong>Type:</strong> Final confirmation</p>
-                    <p><strong>Actions:</strong></p>
-                    <ul style="font-size: 0.9rem; margin: 0.5rem 0;">
-                        <li>Confirm attendance</li>
-                        <li>Cancel if needed</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("</div>", unsafe_allow_html=True)
+            # Display reminder system with proper formatting
+            display_reminder_system(appointment)
 
             # Simulate reminder system
             if st.button("🎬 Activate Reminder System", type="primary", use_container_width=True):
                 st.markdown("""
-                <div class="success-alert" style="text-align: center; padding: 2rem; margin: 2rem 0; box-shadow: 0 4px 16px rgba(5, 150, 105, 0.2);">
-                    <h3 style="color: #059669; margin-top: 0;">✅ Reminder System Activated!</h3>
-                    <p style="color: #047857; margin-bottom: 0;">All automated reminders have been scheduled successfully.</p>
+                <div class="success-alert" style="text-align: center; padding: 3rem; margin: 3rem 0; box-shadow: 0 8px 24px rgba(5, 150, 105, 0.2);">
+                    <h3 style="color: #059669; margin-top: 0; font-size: 2rem;">✅ Reminder System Activated!</h3>
+                    <p style="color: #047857; margin-bottom: 0; font-size: 1.2rem;">All automated reminders have been scheduled successfully.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
                 # Create reminder data
+                appointment_date = datetime.strptime(appointment['date'], '%Y-%m-%d')
+                reminder1_date = appointment_date - timedelta(days=3)
+                reminder2_date = appointment_date - timedelta(days=1)
+                reminder3_date = appointment_date - timedelta(hours=4)
+
                 reminder_data = []
 
                 reminder1 = {
@@ -1207,17 +1309,17 @@ def main():
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
-        # Right column content
+        # Right column content with proper spacing
         st.markdown("""
         <div class="info-panel">
             <h3>ℹ️ Important Information</h3>
-            <div class="warning-alert" style="margin: 1rem 0;">
+            <div class="warning-alert">
                 <p><strong>⚠️ Medication Alert:</strong> Stop all antihistamines 7 days before allergy testing.</p>
             </div>
-            <div class="info-alert" style="margin: 1rem 0;">
+            <div class="info-alert">
                 <p><strong>📋 Forms:</strong> Complete intake forms 24 hours before your visit.</p>
             </div>
-            <div class="success-alert" style="margin: 1rem 0;">
+            <div class="success-alert">
                 <p><strong>🔔 Reminders:</strong> You'll receive 3 automated reminders via email and SMS.</p>
             </div>
         </div>
