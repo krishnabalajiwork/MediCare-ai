@@ -908,10 +908,15 @@ if nav == "Scheduling":
         patient = DAL.get_patient(pid_display)
         st.markdown(f"**Patient:** {patient['full_name']} — Type: {patient['patient_type']}")
         # doctor selection
-        doctors_df = DAL.all_doctors_df()
-        doc_opts = doctors_df["doctor_id"].tolist()
-        doc_display = st.selectbox("Select Doctor", options=doc_opts, format_func=lambda did: f\"{DAL.get_doctor(did)['full_name']} ({DAL.get_doctor(did)['specialty']})\")
-        doctor = DAL.get_doctor(doc_display)
+doctors_df = DAL.all_doctors_df()
+doc_opts = doctors_df["doctor_id"].tolist()
+doc_display = st.selectbox(
+    "Select Doctor",
+    options=doc_opts,
+    format_func=lambda did: f"{DAL.get_doctor(did)['full_name']} ({DAL.get_doctor(did)['specialty']})"
+)
+doctor = DAL.get_doctor(doc_display)
+
         # appointment type (auto-select by patient type)
         suggested_type = "Initial Consultation (60m)" if patient["patient_type"] == "New" else "Follow-up (30m)"
         appt_type = st.selectbox("Appointment Type", options=list(APPT_TYPES.keys()), index=list(APPT_TYPES.keys()).index(suggested_type))
