@@ -1076,4 +1076,8 @@ if nav == "Analytics":
 # --------------------------------------------------------------------------------------
 
 if nav == "Settings":
-    st.markdown('<div class="section"><h3 class="section-title">⚙️ Settings</h3>', unsafe
+    st.markdown(
+    '<div class="section"><h3 class="section-title">⚙️ Settings</h3></div>',
+    unsafe_allow_html=True
+)
+
