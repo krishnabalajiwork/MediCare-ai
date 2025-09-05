@@ -1,372 +1,973 @@
-# streamlit_app.py
-# MediCare AI Scheduling Agent - Full Production-style Streamlit Demo (~1000 lines)
 
 import streamlit as st
 import pandas as pd
-import sqlite3
-import os
-import io
-import random
-import string
 import json
-from datetime import datetime, timedelta, date, time
-from typing import List, Optional
+from datetime import datetime, timedelta
+import random
+import os
 
-# -----------------------------
-# Configuration / Constants
-# -----------------------------
-DB_PATH = "medicare.db"
-PATIENT_CSV_PATH = "patients_database.csv"
-DOCTOR_SCHEDULE_XLSX = "doctor_schedules.xlsx"
-INTAKE_FORM_PDF = "/mnt/data/New Patient Intake Form.pdf"
-CASE_STUDY_PDF = "/mnt/data/Data Science Intern - RagaAI.pdf"
-RANDOM_SEED = 42
-random.seed(RANDOM_SEED)
-
-APPT_TYPES = {
-    "Initial Consultation (60m)": {"minutes": 60},
-    "Follow-up (30m)": {"minutes": 30},
-    "Allergy Testing (45m)": {"minutes": 45},
-}
-
-DOCTOR_SAMPLE = [
-    {
-        "doctor_id": "DOC1001",
-        "full_name": "Dr. Sarah Chen",
-        "specialty": "Allergy & Immunology",
-        "weekday_availability": {"Mon": True, "Tue": True, "Wed": True, "Thu": True, "Fri": True},
-        "start_time": "09:00",
-        "end_time": "17:00",
-        "lunch_start": "12:30",
-        "lunch_end": "13:30",
-        "location": "Main Clinic - Downtown",
-    },
-    {
-        "doctor_id": "DOC1002",
-        "full_name": "Dr. Michael Rodriguez",
-        "specialty": "Pulmonology",
-        "weekday_availability": {"Mon": True, "Tue": False, "Wed": True, "Thu": False, "Fri": True},
-        "start_time": "09:00",
-        "end_time": "17:00",
-        "lunch_start": "12:30",
-        "lunch_end": "13:30",
-        "location": "North Branch",
-    },
-    {
-        "doctor_id": "DOC1003",
-        "full_name": "Dr. Emily Johnson",
-        "specialty": "Pediatrics (Allergy)",
-        "weekday_availability": {"Mon": False, "Tue": True, "Wed": True, "Thu": True, "Fri": False},
-        "start_time": "09:00",
-        "end_time": "17:00",
-        "lunch_start": "12:30",
-        "lunch_end": "13:30",
-        "location": "South Branch",
-    },
-    {
-        "doctor_id": "DOC1004",
-        "full_name": "Dr. Robert Kim",
-        "specialty": "Dermatology",
-        "weekday_availability": {"Mon": True, "Tue": True, "Wed": False, "Thu": True, "Fri": True},
-        "start_time": "09:00",
-        "end_time": "17:00",
-        "lunch_start": "12:30",
-        "lunch_end": "13:30",
-        "location": "West Side Clinic",
-    },
-]
-
-# -----------------------------
-# Streamlit Page Config + CSS
-# -----------------------------
-st.set_page_config(page_title="MediCare AI Scheduling Agent", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
-
-st.title("🏥 MediCare AI Scheduling Agent")
-st.caption("Smart appointment scheduling for allergy & wellness care — demo / case-study implementation")
-
-# FIXED CSS (dark text on light background, high contrast)
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-    .stApp { font-family: Inter, sans-serif; background-color: #f9fafb; color: #111827; }
-    .css-1d391kg { background-color: #f1f5f9 !important; color: #111827 !important; } /* sidebar */
-    .mh { background: linear-gradient(135deg,#2563eb 0%,#3b82f6 100%); color: #fff; padding: 1.1rem; border-radius: 8px; margin-bottom: 1rem;}
-    .section { background: #ffffff; border-radius: 10px; padding: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 14px rgba(0,0,0,0.05); margin-bottom: 1rem; color:#111827;}
-    .card { background: #ffffff; border-radius: 10px; padding: 0.8rem; border: 1px solid #e5e7eb; box-shadow: 0 6px 18px rgba(0,0,0,0.04); margin-bottom: .75rem; color:#111827;}
-    .pill { display:inline-block; padding: .25rem .6rem; border-radius:999px; background:#e2e8f0; color:#111827; font-weight:600; }
-    .small-muted{ font-size: .9rem; color:#6b7280; }
-    .app-id{ background:#0ea5e9; color:#fff; padding:.25rem .6rem; border-radius:8px; font-weight:700; }
-    .tbl-note{ font-size:.9rem; color:#64748b; }
-    .hr{ height:1px; background:#e5e7eb; margin: .75rem 0; border-radius:4px;}
-    .stButton>button, .stDownloadButton>button { border-radius:8px; padding: .5rem .9rem; font-weight:700;}
-    </style>
-    """,
-    unsafe_allow_html=True,
+# Configure page with medical theme
+st.set_page_config(
+    page_title="MediCare AI Scheduling Agent", 
+    page_icon="🏥", 
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -----------------------------
-# Utility Functions
-# -----------------------------
-def gen_id(prefix="APT"):
-    return f"{prefix}{random.randint(10000,99999)}"
+# Custom CSS for medical/hospital theme
+st.markdown("""
+<style>
+    /* Import medical fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-def next_n_weekdays(n: int = 7):
-    today = datetime.now().date()
-    days = []
-    i = 1
-    while len(days) < n:
-        d = today + timedelta(days=i)
-        if d.weekday() < 5:
-            days.append(d)
-        i += 1
-    return days
+    /* Main theme colors */
+    :root {
+        --primary-blue: #1e40af;
+        --light-blue: #dbeafe;
+        --success-green: #059669;
+        --light-green: #d1fae5;
+        --warning-orange: #d97706;
+        --light-orange: #fed7aa;
+        --medical-gray: #f8fafc;
+        --border-gray: #e2e8f0;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+    }
 
-def available_slots(start="09:00", end="17:00", interval=30, lunch=("12:30", "13:30")):
-    st_time = datetime.strptime(start, "%H:%M")
-    end_time = datetime.strptime(end, "%H:%M")
-    slots = []
-    while st_time < end_time:
-        s = st_time.strftime("%H:%M")
-        if not (lunch[0] <= s < lunch[1]):
-            slots.append(s)
-        st_time += timedelta(minutes=interval)
-    return slots
+    /* Main app styling */
+    .main > div {
+        padding-top: 2rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
 
-# -----------------------------
-# Database Layer
-# -----------------------------
-class DAL:
-    @staticmethod
-    def init():
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute(
-            """CREATE TABLE IF NOT EXISTS patients(
-                   patient_id TEXT PRIMARY KEY,
-                   first_name TEXT,last_name TEXT,
-                   dob TEXT,phone TEXT,email TEXT,
-                   insurance TEXT,member_id TEXT,group_num TEXT,
-                   patient_type TEXT,last_visit TEXT
-               )"""
-        )
-        c.execute(
-            """CREATE TABLE IF NOT EXISTS doctors(
-                   doctor_id TEXT PRIMARY KEY,
-                   full_name TEXT,specialty TEXT,
-                   location TEXT
-               )"""
-        )
-        c.execute(
-            """CREATE TABLE IF NOT EXISTS appointments(
-                   appointment_id TEXT PRIMARY KEY,
-                   patient_id TEXT,doctor_id TEXT,
-                   date TEXT,time TEXT,duration INT,
-                   type TEXT,status TEXT,location TEXT,
-                   booking_time TEXT
-               )"""
-        )
-        conn.commit()
-        conn.close()
+    /* Header styling */
+    .medical-header {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        padding: 2rem;
+        margin: -2rem -2rem 2rem -2rem;
+        border-radius: 0 0 20px 20px;
+        color: white;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(30, 64, 175, 0.3);
+    }
 
-    @staticmethod
-    def add_sample_doctors():
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        for d in DOCTOR_SAMPLE:
-            c.execute("INSERT OR IGNORE INTO doctors VALUES(?,?,?,?)", (d["doctor_id"], d["full_name"], d["specialty"], d["location"]))
-        conn.commit()
-        conn.close()
+    .medical-header h1 {
+        font-family: 'Inter', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-    @staticmethod
-    def all_doctors_df():
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql("SELECT * FROM doctors", conn)
-        conn.close()
-        return df
+    .medical-header p {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.2rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
 
-    @staticmethod
-    def get_doctor(doc_id):
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql(f"SELECT * FROM doctors WHERE doctor_id='{doc_id}'", conn)
-        conn.close()
-        return df.iloc[0].to_dict() if not df.empty else None
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8fafc;
+        border-right: 2px solid #e2e8f0;
+    }
 
-    @staticmethod
-    def add_patient(p):
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO patients VALUES(?,?,?,?,?,?,?,?,?,?,?)", tuple(p.values()))
-        conn.commit()
-        conn.close()
+    /* Dashboard cards */
+    .dashboard-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
 
-    @staticmethod
-    def find_patient(first, last, dob):
-        conn = sqlite3.connect(DB_PATH)
-        q = f"SELECT * FROM patients WHERE first_name='{first}' AND last_name='{last}' AND dob='{dob}'"
-        df = pd.read_sql(q, conn)
-        conn.close()
-        return df.iloc[0].to_dict() if not df.empty else None
+    .status-card {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+    }
 
-    @staticmethod
-    def add_appt(a):
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO appointments VALUES(?,?,?,?,?,?,?,?,?,?)", tuple(a.values()))
-        conn.commit()
-        conn.close()
+    .status-card h4 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
 
-    @staticmethod
-    def appts_df():
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql("SELECT * FROM appointments", conn)
-        conn.close()
-        return df
+    .status-card p {
+        margin: 0.25rem 0 0 0;
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
 
-# Initialize DB
-DAL.init()
-DAL.add_sample_doctors()
+    /* Conversation styling */
+    .chat-container {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 2rem;
+    }
 
-# -----------------------------
-# Sidebar Dashboard
-# -----------------------------
-with st.sidebar:
-    st.markdown('<div class="mh"><h3>📊 Medical Dashboard</h3></div>', unsafe_allow_html=True)
-    appts = DAL.appts_df()
-    docs = DAL.all_doctors_df()
-    st.metric("Total Patients", appts["patient_id"].nunique() if not appts.empty else 0)
-    st.metric("Appointments", len(appts))
-    st.metric("Doctors", len(docs))
+    .ai-message {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 12px 4px;
+        margin: 1rem 0;
+        border-left: 4px solid #1e40af;
+        font-family: 'Inter', sans-serif;
+    }
 
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    st.subheader("Quick Actions")
-    if st.button("View Appointments"):
-        st.dataframe(appts)
+    .user-message {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 4px 12px;
+        margin: 1rem 0;
+        border-right: 4px solid #059669;
+        font-family: 'Inter', sans-serif;
+        text-align: right;
+    }
 
-    if st.button("View Doctors"):
-        st.dataframe(docs)
+    /* Form styling */
+    .medical-form {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin: 1rem 0;
+    }
 
-# -----------------------------
-# Tabs: Intake | Schedule | Confirm | Reminders | Reports
-# -----------------------------
-tabs = st.tabs(["📝 Intake", "📅 Scheduling", "✅ Confirmation", "🔔 Reminders", "📑 Reports"])
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
 
-# -----------------------------
-# Intake Tab
-# -----------------------------
-with tabs[0]:
-    st.markdown('<div class="section"><h3>📝 Patient Intake Form</h3>', unsafe_allow_html=True)
-    with st.form("intake_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            f = st.text_input("First Name")
-            d = st.date_input("DOB")
-            ph = st.text_input("Phone")
-        with c2:
-            l = st.text_input("Last Name")
-            em = st.text_input("Email")
-        ins = st.text_input("Insurance Company")
-        mid = st.text_input("Member ID")
-        gnum = st.text_input("Group Number")
-        t = st.selectbox("Patient Type", ["New", "Returning"])
-        sub = st.form_submit_button("Save Patient")
-        if sub and f and l and em:
-            pid = gen_id("PAT")
-            p = {
-                "patient_id": pid,
-                "first_name": f,
-                "last_name": l,
-                "dob": d.strftime("%Y-%m-%d"),
-                "phone": ph,
-                "email": em,
-                "insurance": ins,
-                "member_id": mid,
-                "group_num": gnum,
-                "patient_type": t,
-                "last_visit": datetime.now().strftime("%Y-%m-%d"),
-            }
-            DAL.add_patient(p)
-            st.success(f"Saved patient {p['first_name']} {p['last_name']} with ID {pid}")
-    st.markdown("</div>", unsafe_allow_html=True)
+    .form-section:last-child {
+        border-bottom: none;
+    }
 
-# -----------------------------
-# Scheduling Tab
-# -----------------------------
-with tabs[1]:
-    st.markdown('<div class="section"><h3>📅 Schedule Appointment</h3>', unsafe_allow_html=True)
-    doctors_df = DAL.all_doctors_df()
-    doc_opts = doctors_df["doctor_id"].tolist()
-    doc_display = st.selectbox(
-        "Select Doctor",
-        options=doc_opts,
-        format_func=lambda did: f"{DAL.get_doctor(did)['full_name']} ({DAL.get_doctor(did)['specialty']})",
-    )
-    doctor = DAL.get_doctor(doc_display)
+    .form-section h3 {
+        color: #1e40af;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-    # FIXED: use daydays instead of days
-    daydays = next_n_weekdays(7)
-    sel_date = st.selectbox("Select Date", daydays)
-    slots = available_slots()
-    sel_time = st.selectbox("Select Time", slots)
-    atype = st.selectbox("Appointment Type", list(APPT_TYPES.keys()))
-    if st.button("Book Appointment"):
-        aid = gen_id("APT")
-        appt = {
-            "appointment_id": aid,
-            "patient_id": "PAT9999",
-            "doctor_id": doctor["doctor_id"],
-            "date": sel_date.strftime("%Y-%m-%d"),
-            "time": sel_time,
-            "duration": APPT_TYPES[atype]["minutes"],
-            "type": atype,
-            "status": "Confirmed",
-            "location": doctor["location"],
-            "booking_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    /* Appointment details */
+    .appointment-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 2px solid #0ea5e9;
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+    }
+
+    .appointment-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #0ea5e9;
+    }
+
+    .appointment-id {
+        background: #0ea5e9;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 0.5rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Reminder system */
+    .reminder-system {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin: 2rem 0;
+    }
+
+    .reminder-card {
+        background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+        border-left: 4px solid #d97706;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1);
+    }
+
+    /* Metrics styling */
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
+
+    .metric-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e40af;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .metric-label {
+        color: #64748b;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+        box-shadow: 0 2px 8px rgba(30, 64, 175, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+    }
+
+    /* Success button */
+    .success-button > button {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+    }
+
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .medical-header h1 {
+            font-size: 2rem;
         }
-        DAL.add_appt(appt)
-        st.success(f"Appointment {aid} booked with {doctor['full_name']} on {sel_date} at {sel_time}")
+        .main > div {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# -----------------------------
-# Confirmation Tab
-# -----------------------------
-with tabs[2]:
-    st.markdown('<div class="section"><h3>✅ Appointment Confirmation</h3>', unsafe_allow_html=True)
-    df = DAL.appts_df()
-    if df.empty:
-        st.info("No appointments booked yet")
-    else:
-        st.dataframe(df)
-        sel = st.selectbox("Choose Appointment", df["appointment_id"].tolist())
-        appt = df[df["appointment_id"] == sel].iloc[0].to_dict()
-        st.markdown(f"<div class='card'><span class='app-id'>ID {appt['appointment_id']}</span> with Doctor {appt['doctor_id']} on {appt['date']} {appt['time']}</div>", unsafe_allow_html=True)
+# Initialize session state
+if 'conversation_history' not in st.session_state:
+    st.session_state.conversation_history = []
+if 'current_patient' not in st.session_state:
+    st.session_state.current_patient = {}
+if 'appointment_data' not in st.session_state:
+    st.session_state.appointment_data = {}
+if 'step' not in st.session_state:
+    st.session_state.step = 'greeting'
 
-# -----------------------------
-# Reminders Tab
-# -----------------------------
-with tabs[3]:
-    st.markdown('<div class="section"><h3>🔔 Automated Reminders</h3>', unsafe_allow_html=True)
-    df = DAL.appts_df()
-    if df.empty:
-        st.info("No appointments")
-    else:
-        for _, row in df.iterrows():
-            d = datetime.strptime(row["date"], "%Y-%m-%d")
-            r1 = d - timedelta(days=3)
-            r2 = d - timedelta(days=1)
-            r3 = d - timedelta(hours=4)
-            st.markdown(f"<div class='card'>Reminders for <b>{row['appointment_id']}</b>: {r1}, {r2}, {r3}</div>", unsafe_allow_html=True)
+# Load data functions
+@st.cache_data
+def load_patient_data():
+    try:
+        return pd.read_csv('patients_database.csv')
+    except FileNotFoundError:
+        st.error("Patient database not found. Please ensure patients_database.csv is available.")
+        return pd.DataFrame()
 
-# -----------------------------
-# Reports Tab
-# -----------------------------
-with tabs[4]:
-    st.markdown('<div class="section"><h3>📑 Reports</h3>', unsafe_allow_html=True)
-    appts = DAL.appts_df()
-    if not appts.empty:
-        st.bar_chart(appts["doctor_id"].value_counts())
-    else:
-        st.info("No data yet")
-    if os.path.exists(INTAKE_FORM_PDF):
-        st.download_button("Download Intake Form PDF", data=open(INTAKE_FORM_PDF, "rb"), file_name="intake_form.pdf")
-    if os.path.exists(CASE_STUDY_PDF):
-        st.download_button("Download Case Study PDF", data=open(CASE_STUDY_PDF, "rb"), file_name="case_study.pdf")
+@st.cache_data
+def load_schedule_data():
+    try:
+        return pd.read_excel('doctor_schedules.xlsx', sheet_name='Full_Schedule')
+    except FileNotFoundError:
+        st.error("Doctor schedule not found. Please ensure doctor_schedules.xlsx is available.")
+        return pd.DataFrame()
+
+# AI Agent Class (same as before but with better UI integration)
+class AISchedulingAgent:
+    def __init__(self):
+        self.patients_df = load_patient_data()
+        self.schedule_df = load_schedule_data()
+
+    def greet_patient(self):
+        return """
+        🏥 **Welcome to MediCare Allergy & Wellness Center!**
+
+        I'm your AI scheduling assistant. I'll help you book an appointment with one of our specialists.
+
+        To get started, I'll need some basic information:
+        """
+
+    def search_patient(self, first_name, last_name, dob=None, phone=None):
+        """Search for existing patient in database"""
+        if self.patients_df.empty:
+            return None, False
+
+        name_matches = self.patients_df[
+            (self.patients_df['first_name'].str.lower() == first_name.lower()) & 
+            (self.patients_df['last_name'].str.lower() == last_name.lower())
+        ]
+
+        if len(name_matches) == 1:
+            return name_matches.iloc[0].to_dict(), True
+        elif len(name_matches) > 1:
+            if dob:
+                dob_match = name_matches[name_matches['date_of_birth'] == dob]
+                if len(dob_match) == 1:
+                    return dob_match.iloc[0].to_dict(), True
+            if phone:
+                phone_match = name_matches[name_matches['phone'] == phone]
+                if len(phone_match) == 1:
+                    return phone_match.iloc[0].to_dict(), True
+            return name_matches.iloc[0].to_dict(), False
+        else:
+            return None, False
+
+    def book_appointment(self, patient_data, doctor, date, time, duration):
+        """Book an appointment and return confirmation details"""
+        appointment_id = f"APT{random.randint(10000, 99999)}"
+
+        location_map = {
+            'Dr. Sarah Chen': 'Main Clinic - Downtown',
+            'Dr. Michael Rodriguez': 'North Branch',
+            'Dr. Emily Johnson': 'South Branch',
+            'Dr. Robert Kim': 'West Side Clinic'
+        }
+
+        booking_data = {
+            'appointment_id': appointment_id,
+            'patient_name': patient_data.get('full_name', f"{patient_data.get('first_name', '')} {patient_data.get('last_name', '')}"),
+            'patient_id': patient_data.get('patient_id', 'NEW'),
+            'doctor': doctor,
+            'date': date,
+            'time': time,
+            'duration': duration,
+            'location': location_map.get(doctor, 'Main Clinic - Downtown'),
+            'patient_type': 'New Patient' if duration == 60 else 'Follow-up',
+            'status': 'Confirmed',
+            'booking_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'phone': patient_data.get('phone', ''),
+            'email': patient_data.get('email', ''),
+            'insurance': patient_data.get('insurance_company', 'Not provided')
+        }
+
+        return booking_data
+
+def main():
+    # Medical Header
+    st.markdown("""
+    <div class="medical-header">
+        <h1>🏥 MediCare AI Scheduling Agent</h1>
+        <p>Intelligent Appointment Scheduling for Allergy & Wellness Care</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize AI agent
+    agent = AISchedulingAgent()
+
+    # Sidebar with medical dashboard
+    with st.sidebar:
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 1rem;">
+            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin: 0;">
+                📊 Medical Dashboard
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Patient Status
+        if st.session_state.current_patient:
+            st.markdown(f"""
+            <div class="status-card">
+                <h4>✅ Patient Information</h4>
+                <p><strong>Name:</strong> {st.session_state.current_patient.get('full_name', 'Unknown')}</p>
+                <p><strong>Type:</strong> {st.session_state.current_patient.get('patient_type', 'Unknown')}</p>
+                <p><strong>ID:</strong> {st.session_state.current_patient.get('patient_id', 'N/A')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Appointment Status
+        if st.session_state.appointment_data:
+            st.markdown(f"""
+            <div class="status-card">
+                <h4>✅ Appointment Scheduled</h4>
+                <p><strong>Date:</strong> {st.session_state.appointment_data.get('date', 'Unknown')}</p>
+                <p><strong>Time:</strong> {st.session_state.appointment_data.get('time', 'Unknown')}</p>
+                <p><strong>Doctor:</strong> {st.session_state.appointment_data.get('doctor', 'Unknown')}</p>
+                <p><strong>Duration:</strong> {st.session_state.appointment_data.get('duration', 'Unknown')} min</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # System Statistics
+        st.markdown("""
+        <div style="margin-top: 2rem;">
+            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1rem;">
+                📈 System Statistics
+            </h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-number">50</div>
+                <div class="metric-label">Total Patients</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-number">28</div>
+                <div class="metric-label">New Patients</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-number">918</div>
+                <div class="metric-label">Available Slots</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-number">22</div>
+                <div class="metric-label">Returning Patients</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Quick Actions
+        st.markdown("""
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 2px solid #e2e8f0;">
+            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1rem;">
+                ⚡ Quick Actions
+            </h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("👥 View Sample Patients", use_container_width=True):
+            sample_patients = pd.DataFrame([
+                {'Name': 'Kenneth Davis', 'Type': 'New', 'Phone': '(450) 428-3286'},
+                {'Name': 'Joseph Lewis', 'Type': 'New', 'Phone': '(206) 977-3615'},
+                {'Name': 'Betty Moore', 'Type': 'Returning', 'Phone': '(935) 522-4483'}
+            ])
+            st.dataframe(sample_patients, use_container_width=True)
+
+        if st.button("📅 View Today's Schedule", use_container_width=True):
+            today_schedule = pd.DataFrame([
+                {'Doctor': 'Dr. Sarah Chen', 'Time': '09:00', 'Available': '✅'},
+                {'Doctor': 'Dr. Sarah Chen', 'Time': '09:30', 'Available': '✅'},
+                {'Doctor': 'Dr. Sarah Chen', 'Time': '10:00', 'Available': '❌'},
+                {'Doctor': 'Dr. Michael Rodriguez', 'Time': '14:00', 'Available': '✅'}
+            ])
+            st.dataframe(today_schedule, use_container_width=True)
+
+    # Main content area
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Conversation Container
+        st.markdown("""
+        <div class="chat-container">
+            <h2 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                💬 Patient Consultation
+            </h2>
+        """, unsafe_allow_html=True)
+
+        # Display conversation history
+        for message in st.session_state.conversation_history:
+            if message['role'] == 'assistant':
+                st.markdown(f"""
+                <div class="ai-message">
+                    <strong>🤖 AI Medical Assistant:</strong><br>
+                    {message['content']}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="user-message">
+                    <strong>👤 You:</strong><br>
+                    {message['content']}
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Handle different conversation steps
+        if st.session_state.step == 'greeting':
+            greeting = agent.greet_patient()
+            if not any(msg['content'] == greeting for msg in st.session_state.conversation_history):
+                st.session_state.conversation_history.append({'role': 'assistant', 'content': greeting})
+                st.markdown(f"""
+                <div class="ai-message">
+                    <strong>🤖 AI Medical Assistant:</strong><br>
+                    {greeting}
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Patient Information Form
+            st.markdown("""
+            <div class="medical-form">
+                <div class="form-section">
+                    <h3>📝 Patient Information</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            with st.form("patient_info_form"):
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    first_name = st.text_input("First Name *", key="first_name", placeholder="Enter your first name")
+                    dob = st.date_input("Date of Birth *", key="dob")
+                with col_b:
+                    last_name = st.text_input("Last Name *", key="last_name", placeholder="Enter your last name")
+                    phone = st.text_input("Phone Number *", placeholder="(555) 123-4567", key="phone")
+
+                email = st.text_input("Email Address *", key="email", placeholder="your.email@example.com")
+
+                st.markdown('<div class="success-button">', unsafe_allow_html=True)
+                submitted = st.form_submit_button("🔍 Find My Information", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                if submitted and first_name and last_name and phone and email:
+                    # Search for patient
+                    patient_data, found = agent.search_patient(first_name, last_name, dob.strftime('%m/%d/%Y'), phone)
+
+                    if patient_data:
+                        st.session_state.current_patient = patient_data
+                        patient_type = patient_data['patient_type']
+
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); 
+                                   border-left: 4px solid #059669; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                            <strong>✅ Patient Found:</strong> {patient_data['full_name']} ({patient_type})
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        response = f"Great! I found your information, {first_name}. You're a {patient_type.lower()} patient."
+                        if patient_type == 'Returning':
+                            response += f" Your last visit was on {patient_data.get('last_visit', 'N/A')}."
+
+                        st.session_state.conversation_history.append({'role': 'user', 'content': f"My name is {first_name} {last_name}"})
+                        st.session_state.conversation_history.append({'role': 'assistant', 'content': response})
+
+                    else:
+                        # New patient
+                        new_patient_data = {
+                            'patient_id': 'NEW',
+                            'first_name': first_name,
+                            'last_name': last_name,
+                            'full_name': f"{first_name} {last_name}",
+                            'date_of_birth': dob.strftime('%m/%d/%Y'),
+                            'phone': phone,
+                            'email': email,
+                            'patient_type': 'New',
+                            'last_visit': None
+                        }
+                        st.session_state.current_patient = new_patient_data
+
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); 
+                                   border-left: 4px solid #1e40af; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                            <strong>👋 Welcome New Patient!</strong> We'll schedule a 60-minute comprehensive consultation.
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        response = f"Welcome to MediCare, {first_name}! I see you're a new patient. We'll schedule a 60-minute appointment for your initial consultation."
+                        st.session_state.conversation_history.append({'role': 'user', 'content': f"My name is {first_name} {last_name}"})
+                        st.session_state.conversation_history.append({'role': 'assistant', 'content': response})
+
+                    st.session_state.step = 'scheduling'
+                    st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        elif st.session_state.step == 'scheduling':
+            st.markdown("""
+            <div class="medical-form">
+                <div class="form-section">
+                    <h3>📅 Schedule Your Appointment</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            patient_type = st.session_state.current_patient.get('patient_type', 'New')
+            duration = 60 if patient_type == 'New' else 30
+
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); 
+                       border-left: 4px solid #d97706; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <strong>⏱️ Appointment Duration:</strong> {duration} minutes ({patient_type} Patient)
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.form("scheduling_form"):
+                col_a, col_b = st.columns(2)
+
+                with col_a:
+                    doctors = ['Dr. Sarah Chen', 'Dr. Michael Rodriguez', 'Dr. Emily Johnson', 'Dr. Robert Kim']
+                    selected_doctor = st.selectbox("Preferred Doctor 👨‍⚕️", doctors, key="doctor")
+
+                with col_b:
+                    # Date selection
+                    available_dates = []
+                    for i in range(1, 8):
+                        future_date = datetime.now() + timedelta(days=i)
+                        if future_date.weekday() < 5:  # Weekdays only
+                            available_dates.append(future_date.strftime('%Y-%m-%d'))
+
+                    selected_date = st.selectbox("Preferred Date 📅", available_dates, key="date")
+
+                # Time slots
+                time_slots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30']
+                selected_time = st.selectbox("Available Time Slots ⏰", time_slots, key="time")
+
+                # Insurance section
+                st.markdown("""
+                <div class="form-section">
+                    <h3>💳 Insurance Information</h3>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col_c, col_d = st.columns(2)
+
+                with col_c:
+                    insurance_company = st.text_input("Insurance Company", 
+                        value=st.session_state.current_patient.get('insurance_company', ''), 
+                        key="insurance", placeholder="Blue Cross Blue Shield")
+                    member_id = st.text_input("Member ID", 
+                        value=st.session_state.current_patient.get('member_id', ''), 
+                        key="member_id", placeholder="ABC123456")
+
+                with col_d:
+                    group_number = st.text_input("Group Number", 
+                        value=st.session_state.current_patient.get('group_number', ''), 
+                        key="group_num", placeholder="GRP5678")
+
+                st.markdown('<div class="success-button">', unsafe_allow_html=True)
+                book_appointment = st.form_submit_button("📅 Confirm Appointment", type="primary", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                if book_appointment:
+                    # Update patient data with insurance info
+                    st.session_state.current_patient.update({
+                        'insurance_company': insurance_company,
+                        'member_id': member_id,
+                        'group_number': group_number
+                    })
+
+                    # Book the appointment
+                    appointment = agent.book_appointment(
+                        st.session_state.current_patient, 
+                        selected_doctor, 
+                        selected_date, 
+                        selected_time, 
+                        duration
+                    )
+
+                    st.session_state.appointment_data = appointment
+                    st.session_state.step = 'confirmation'
+                    st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        elif st.session_state.step == 'confirmation':
+            appointment = st.session_state.appointment_data
+
+            # Success header
+            st.markdown("""
+            <div style="text-align: center; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); 
+                       padding: 2rem; border-radius: 16px; margin: 2rem 0; 
+                       box-shadow: 0 4px 20px rgba(5, 150, 105, 0.2);">
+                <h1 style="color: #059669; font-size: 2.5rem; margin: 0;">🎉</h1>
+                <h2 style="color: #059669; margin: 0.5rem 0;">Appointment Confirmed!</h2>
+                <p style="color: #047857; margin: 0;">Your appointment has been successfully scheduled</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Appointment details card
+            st.markdown(f"""
+            <div class="appointment-card">
+                <div class="appointment-header">
+                    <div class="appointment-id">Appointment ID: {appointment['appointment_id']}</div>
+                    <h3 style="color: #0ea5e9; margin: 0;">Your Appointment Details</h3>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <div>
+                        <p><strong>👤 Patient:</strong> {appointment['patient_name']}</p>
+                        <p><strong>👨‍⚕️ Doctor:</strong> {appointment['doctor']}</p>
+                        <p><strong>📅 Date:</strong> {appointment['date']}</p>
+                        <p><strong>⏰ Time:</strong> {appointment['time']}</p>
+                    </div>
+                    <div>
+                        <p><strong>⏱️ Duration:</strong> {appointment['duration']} minutes</p>
+                        <p><strong>🏥 Location:</strong> {appointment['location']}</p>
+                        <p><strong>📋 Type:</strong> {appointment['patient_type']}</p>
+                        <p><strong>✅ Status:</strong> {appointment['status']}</p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Form distribution section
+            st.markdown("""
+            <div class="medical-form">
+                <div class="form-section">
+                    <h3>📧 Patient Intake Form Distribution</h3>
+                    <p style="color: #64748b;">We'll send you a comprehensive intake form to complete before your visit.</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("📨 Send Intake Form Email", type="primary", use_container_width=True):
+                # Email preview
+                st.markdown(f"""
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin: 1rem 0;">
+                    <h4 style="color: #1e40af; margin-top: 0;">📧 Email Sent Successfully!</h4>
+                    <p><strong>To:</strong> {appointment['email']}</p>
+                    <p><strong>Subject:</strong> Complete Your Intake Form - Appointment on {appointment['date']}</p>
+
+                    <div style="background: white; border-left: 4px solid #1e40af; padding: 1rem; margin: 1rem 0;">
+                        <p><strong>Dear {appointment['patient_name']},</strong></p>
+                        <p>Thank you for scheduling your appointment with {appointment['doctor']} on {appointment['date']} at {appointment['time']}.</p>
+
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 1rem; margin: 1rem 0;">
+                            <p><strong>⚠️ CRITICAL INSTRUCTIONS:</strong></p>
+                            <p>Please <strong>STOP taking all antihistamines</strong> (Claritin, Zyrtec, Allegra, Benadryl) <strong>7 days before</strong> your appointment.</p>
+                            <p><strong>You may continue:</strong> Nasal sprays, asthma inhalers, and prescription medications.</p>
+                        </div>
+
+                        <p><strong>Please bring:</strong></p>
+                        <ul>
+                            <li>Photo ID</li>
+                            <li>Insurance cards</li>
+                            <li>List of current medications</li>
+                        </ul>
+
+                        <p>Best regards,<br>MediCare Allergy & Wellness Center</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Download button
+                appointments_df = pd.DataFrame([appointment])
+                csv_data = appointments_df.to_csv(index=False)
+
+                st.download_button(
+                    label="📥 Download Appointment Confirmation",
+                    data=csv_data,
+                    file_name=f"appointment_{appointment['appointment_id']}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+                st.session_state.step = 'reminders'
+                st.rerun()
+
+        elif st.session_state.step == 'reminders':
+            appointment = st.session_state.appointment_data
+            appointment_date = datetime.strptime(appointment['date'], '%Y-%m-%d')
+
+            # Reminder system header
+            st.markdown("""
+            <div class="reminder-system">
+                <h2 style="color: #d97706; font-family: 'Inter', sans-serif; font-weight: 600; 
+                          display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                    🔔 Automated Reminder System
+                </h2>
+                <p style="color: #64748b; margin-bottom: 2rem;">
+                    Our intelligent reminder system will keep you informed and ensure you don't miss your appointment.
+                </p>
+            """, unsafe_allow_html=True)
+
+            # Calculate reminder dates
+            reminder1_date = appointment_date - timedelta(days=3)
+            reminder2_date = appointment_date - timedelta(days=1)
+            reminder3_date = appointment_date - timedelta(hours=4)
+
+            # Reminder cards
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.markdown(f"""
+                <div class="reminder-card">
+                    <h4 style="color: #d97706; margin-top: 0;">📅 Reminder 1</h4>
+                    <p><strong>When:</strong> {reminder1_date.strftime('%Y-%m-%d')}</p>
+                    <p><strong>Time:</strong> 72 hours before</p>
+                    <p><strong>Type:</strong> Standard reminder</p>
+                    <p><strong>Message:</strong> Please complete your intake form</p>
+                    <p><strong>Channels:</strong> Email + SMS</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown(f"""
+                <div class="reminder-card">
+                    <h4 style="color: #d97706; margin-top: 0;">⚠️ Reminder 2</h4>
+                    <p><strong>When:</strong> {reminder2_date.strftime('%Y-%m-%d')}</p>
+                    <p><strong>Time:</strong> 24 hours before</p>
+                    <p><strong>Type:</strong> Interactive check</p>
+                    <p><strong>Questions:</strong></p>
+                    <ul style="font-size: 0.9rem; margin: 0.5rem 0;">
+                        <li>Form completed?</li>
+                        <li>Visit confirmed?</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown(f"""
+                <div class="reminder-card">
+                    <h4 style="color: #d97706; margin-top: 0;">🚨 Final Reminder</h4>
+                    <p><strong>When:</strong> {reminder3_date.strftime('%Y-%m-%d %H:%M')}</p>
+                    <p><strong>Time:</strong> 4 hours before</p>
+                    <p><strong>Type:</strong> Final confirmation</p>
+                    <p><strong>Actions:</strong></p>
+                    <ul style="font-size: 0.9rem; margin: 0.5rem 0;">
+                        <li>Confirm attendance</li>
+                        <li>Cancel if needed</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Simulate reminder system
+            if st.button("🎬 Activate Reminder System", type="primary", use_container_width=True):
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); 
+                           border-radius: 12px; padding: 2rem; margin: 2rem 0; text-align: center;
+                           box-shadow: 0 4px 16px rgba(5, 150, 105, 0.2);">
+                    <h3 style="color: #059669; margin-top: 0;">✅ Reminder System Activated!</h3>
+                    <p style="color: #047857; margin-bottom: 0;">All automated reminders have been scheduled successfully.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Create reminder data
+                reminder_data = []
+
+                reminder1 = {
+                    'reminder_id': 'REM001',
+                    'appointment_id': appointment['appointment_id'],
+                    'reminder_number': 1,
+                    'scheduled_date': reminder1_date.strftime('%Y-%m-%d'),
+                    'type': 'Standard',
+                    'status': 'Scheduled',
+                    'message': f"Hi {appointment['patient_name']}, reminder about your appointment with {appointment['doctor']} on {appointment['date']} at {appointment['time']}. Please complete your intake form.",
+                    'channels': 'Email, SMS'
+                }
+
+                reminder2 = {
+                    'reminder_id': 'REM002',
+                    'appointment_id': appointment['appointment_id'],
+                    'reminder_number': 2,
+                    'scheduled_date': reminder2_date.strftime('%Y-%m-%d'),
+                    'type': 'Interactive',
+                    'status': 'Scheduled',
+                    'message': f"Hi {appointment['patient_name']}, your appointment is tomorrow. Have you completed your intake form? Is your visit confirmed?",
+                    'channels': 'Email, SMS'
+                }
+
+                reminder3 = {
+                    'reminder_id': 'REM003',
+                    'appointment_id': appointment['appointment_id'],
+                    'reminder_number': 3,
+                    'scheduled_date': reminder3_date.strftime('%Y-%m-%d %H:%M'),
+                    'type': 'Final',
+                    'status': 'Scheduled',
+                    'message': f"Final reminder: Your appointment with {appointment['doctor']} is in 4 hours. Please confirm attendance.",
+                    'channels': 'Email, SMS'
+                }
+
+                reminder_data = [reminder1, reminder2, reminder3]
+                reminders_df = pd.DataFrame(reminder_data)
+
+                st.subheader("📱 Reminder Schedule")
+                st.dataframe(reminders_df, use_container_width=True)
+
+                # Download reminder schedule
+                csv_reminders = reminders_df.to_csv(index=False)
+
+                st.download_button(
+                    label="📥 Download Reminder Schedule",
+                    data=csv_reminders,
+                    file_name=f"reminders_{appointment['appointment_id']}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+                # Success completion
+                st.balloons()
+
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); 
+                           color: white; border-radius: 16px; padding: 3rem; margin: 2rem 0; text-align: center;
+                           box-shadow: 0 8px 24px rgba(30, 64, 175, 0.3);">
+                    <h2 style="margin-top: 0; font-size: 2rem;">🏆 Workflow Complete!</h2>
+                    <p style="font-size: 1.2rem; margin-bottom: 2rem;">
+                        Your appointment has been successfully scheduled with all automated systems activated.
+                    </p>
+                    <div style="background: rgba(255,255,255,0.2); border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                        <p><strong>Next Steps:</strong></p>
+                        <p>• Check your email for the intake form</p>
+                        <p>• Stop antihistamines 7 days before your appointment</p>
+                        <p>• Bring your ID and insurance cards</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if st.button("🔄 Schedule Another Appointment", use_container_width=True):
+                    # Reset session state
+                    for key in list(st.session_state.keys()):
+                        if key not in ['conversation_history']:
+                            del st.session_state[key]
+                    st.session_state.step = 'greeting'
+                    st.session_state.conversation_history = []
+                    st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col2:
+        # Right column content (if needed)
+        st.markdown("""
+        <div style="background: white; border-radius: 12px; padding: 2rem; 
+                   box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; margin-bottom: 2rem;">
+            <h3 style="color: #1e40af; font-family: 'Inter', sans-serif; font-weight: 600; margin-bottom: 1rem;">
+                ℹ️ Important Information
+            </h3>
+            <div style="background: #fef3c7; border-left: 4px solid #d97706; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                <p style="margin: 0;"><strong>⚠️ Medication Alert:</strong> Stop all antihistamines 7 days before allergy testing.</p>
+            </div>
+            <div style="background: #dbeafe; border-left: 4px solid #1e40af; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                <p style="margin: 0;"><strong>📋 Forms:</strong> Complete intake forms 24 hours before your visit.</p>
+            </div>
+            <div style="background: #d1fae5; border-left: 4px solid #059669; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                <p style="margin: 0;"><strong>🔔 Reminders:</strong> You'll receive 3 automated reminders via email and SMS.</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
