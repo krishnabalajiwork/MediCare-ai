@@ -922,7 +922,7 @@ if nav == "Scheduling":
         appt_type = st.selectbox("Appointment Type", options=list(APPT_TYPES.keys()), index=list(APPT_TYPES.keys()).index(suggested_type))
         duration = APPT_TYPES[appt_type]["minutes"]
         # date selection: next 7 weekdays
-        days = next_n := next_n_weekdays(7)
+        daydays = next_n_weekdays(7)
         sel_date = st.selectbox("Select Date", days)
         # generate candidate slots
         candidate_slots = generate_slots(doctor, sel_date, duration)
