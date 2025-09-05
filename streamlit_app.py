@@ -115,14 +115,14 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
     
-    /* --- IMPROVED FORM STYLES --- */
-    .stTextInput input, .stDateInput input {
+    /* ## FIX: ADDED CSS FOR LIGHT-THEMED FORM INPUTS ## */
+    .stTextInput input, .stDateInput input, .stSelectbox > div {
         background-color: #fff !important;
         color: #333 !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 8px !important;
     }
-    .stTextInput input:focus, .stDateInput input:focus {
+    .stTextInput input:focus, .stDateInput input:focus, .stSelectbox > div:focus-within {
         border-color: var(--primary-color) !important;
         box-shadow: 0 0 0 2px var(--primary-light) !important;
     }
@@ -178,7 +178,7 @@ st.markdown("""
     /* --- Progress Stepper --- */
     .stepper-container {
         display: flex;
-        justify-content: space-around; /* Changed for better spacing */
+        justify-content: space-around;
         margin-bottom: 2rem;
         position: relative;
     }
@@ -187,7 +187,7 @@ st.markdown("""
         flex-direction: column;
         align-items: center;
         text-align: center;
-        width: 120px; /* Adjusted width */
+        width: 120px;
     }
     .step-circle {
         width: 30px;
@@ -260,21 +260,17 @@ if 'appointment_data' not in st.session_state:
 @st.cache_data
 def load_data():
     try:
-        # FIX: The provided CSV data is not properly comma-separated. We need to parse it manually.
-        # Create a file-like object from the raw string data you provided
-        csv_data = """
-        patient_id,first_name,last_name,full_name,date_of_birth,phone,email,insurance_company,member_id,group_number,patient_type,last_visit,known_allergies,preferred_doctor
-        PAT1000,Kenneth,Davis,Kenneth Davis,12/09/1945,(450) 428-3286,kenneth.davis@email.com,Aetna,DEF876646,GRP9935,New,,Cats, dogs,Dr. Robert Kim
-        PAT1001,James,Johnson,James Johnson,04/08/1949,(717) 816-1434,james.johnson@email.com,Centene,ABC850800,GRP9928,Returning,04/16/2025,Latex, penicillin,Dr. Emily Johnson
-        PAT1002,John,Carter,John Carter,03/23/1995,(632) 548-5552,john.carter@email.com,Cigna,ABC900581,GRP6514,New,,No known allergies,Dr. Robert Kim
-        PAT1003,Michael,Thompson,Michael Thompson,06/20/1998,(470) 244-8527,michael.thompson@email.com,Centene,ABC496922,GRP2291,Returning,09/19/2024,Cats, dogs,Dr. Emily Johnson
-        PAT1004,Andrew,Gonzalez,Andrew Gonzalez,02/02/1989,(877) 433-5741,andrew.gonzalez@email.com,Aetna,ABC205907,GRP7227,Returning,12/17/2024,Seasonal pollen,Dr. Emily Johnson
-        """
-        # Read the data using pandas read_csv
-        patients_df = pd.read_csv(io.StringIO(csv_data))
-        
-        # If you have the actual CSV file named 'patients_database.csv', you can use this line instead:
-        # patients_df = pd.read_csv('patients_database.csv')
+        # ## FIX: The provided CSV text was not properly formatted.
+        # ## This loads from a correctly formatted string for demonstration.
+        # ## Replace with `pd.read_csv('patients_database.csv')` if your actual file is correct.
+        csv_text_data = """patient_id,first_name,last_name,full_name,date_of_birth,phone,email,insurance_company,member_id,group_number,patient_type,last_visit,known_allergies,preferred_doctor
+PAT1000,Kenneth,Davis,Kenneth Davis,12/09/1945,(450) 428-3286,kenneth.davis@email.com,Aetna,DEF876646,GRP9935,New,,Cats and dogs,Dr. Robert Kim
+PAT1001,James,Johnson,James Johnson,04/08/1949,(717) 816-1434,james.johnson@email.com,Centene,ABC850800,GRP9928,Returning,04/16/2025,"Latex, penicillin",Dr. Emily Johnson
+PAT1002,John,Carter,John Carter,03/23/1995,(632) 548-5552,john.carter@email.com,Cigna,ABC900581,GRP6514,New,,No known allergies,Dr. Robert Kim
+PAT1003,Michael,Thompson,Michael Thompson,06/20/1998,(470) 244-8527,michael.thompson@email.com,Centene,ABC496922,GRP2291,Returning,09/19/2024,Cats and dogs,Dr. Emily Johnson
+PAT1004,Andrew,Gonzalez,Andrew Gonzalez,02/02/1989,(877) 433-5741,andrew.gonzalez@email.com,Aetna,ABC205907,GRP7227,Returning,12/17/2024,Seasonal pollen,Dr. Emily Johnson
+"""
+        patients_df = pd.read_csv(io.StringIO(csv_text_data))
 
     except FileNotFoundError:
         st.error("`patients_database.csv` not found.")
@@ -326,7 +322,6 @@ class AISchedulingAgent:
         }
 
 # --- UI RENDERING FUNCTIONS ---
-
 def render_header():
     st.markdown("""
     <div class="app-header">
@@ -339,9 +334,8 @@ def render_sidebar(agent):
     with st.sidebar:
         st.markdown('<p class="sidebar-header">📊 Medical Dashboard</p>', unsafe_allow_html=True)
         
-        # Dynamic Metrics
         if not agent.patients_df.empty:
-            total_patients = 50 # Using static number for demo as full CSV is not available
+            total_patients = 50 
             new_patients = 28
             returning_patients = 22
         else:
@@ -366,7 +360,7 @@ def render_progress_stepper():
     steps = ["Patient Info", "Schedule", "Confirmation"]
     current_step_name = st.session_state.step
     step_indices = {"greeting": 0, "scheduling": 1, "confirmation": 2}
-    current_idx = step_indices.get(current_step_name, 0) # Default to 0
+    current_idx = step_indices.get(current_step_name, 0)
 
     stepper_html = '<div class="stepper-container">'
     for i, step in enumerate(steps):
@@ -382,49 +376,47 @@ def render_progress_stepper():
     st.markdown(stepper_html, unsafe_allow_html=True)
 
 def render_patient_info_form(agent):
-    with st.container():
-        # FIX: Move stepper inside the form container to avoid initial render issue
-        render_progress_stepper()
+    render_progress_stepper()
+    
+    st.markdown('<div class="ai-message">🤖 <strong>AI Assistant:</strong><br>' + agent.greet_patient() + '</div>', unsafe_allow_html=True)
+    
+    with st.form("patient_info_form"):
+        st.markdown("<h3>📝 Patient Information</h3>", unsafe_allow_html=True)
         
-        st.markdown('<div class="ai-message">🤖 <strong>AI Assistant:</strong><br>' + agent.greet_patient() + '</div>', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            first_name = st.text_input("First Name *", placeholder="Enter your first name")
+            dob = st.date_input("Date of Birth *", min_value=datetime(1920, 1, 1))
+        with col2:
+            last_name = st.text_input("Last Name *", placeholder="Enter your last name")
+            phone = st.text_input("Phone Number *", placeholder="(555) 123-4567")
         
-        with st.form("patient_info_form"):
-            st.markdown("<h3>📝 Patient Information</h3>", unsafe_allow_html=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                first_name = st.text_input("First Name *", placeholder="Enter your first name")
-                dob = st.date_input("Date of Birth *", min_value=datetime(1920, 1, 1))
-            with col2:
-                last_name = st.text_input("Last Name *", placeholder="Enter your last name")
-                phone = st.text_input("Phone Number *", placeholder="(555) 123-4567")
-            
-            email = st.text_input("Email Address *", placeholder="your.email@example.com")
-            
-            submitted = st.form_submit_button("🔍 Find My Information", use_container_width=True)
+        email = st.text_input("Email Address *", placeholder="your.email@example.com")
+        
+        submitted = st.form_submit_button("🔍 Find My Information", use_container_width=True)
 
-            if submitted:
-                if not all([first_name, last_name, phone, email]):
-                    st.warning("Please fill out all required fields.")
+        if submitted:
+            if not all([first_name, last_name, phone, email]):
+                st.warning("Please fill out all required fields.")
+            else:
+                patient_data = agent.search_patient(first_name, last_name, dob.strftime('%m/%d/%Y'), phone)
+                
+                if patient_data:
+                    st.session_state.current_patient = patient_data
+                    st.success(f"✅ Welcome back, {first_name}! We've found your information as a returning patient.")
                 else:
-                    patient_data = agent.search_patient(first_name, last_name, dob.strftime('%m/%d/%Y'), phone)
-                    
-                    if patient_data:
-                        st.session_state.current_patient = patient_data
-                        st.success(f"✅ Welcome back, {first_name}! We've found your information as a returning patient.")
-                    else:
-                        st.session_state.current_patient = {
-                            'first_name': first_name, 'last_name': last_name,
-                            'date_of_birth': dob.strftime('%m/%d/%Y'),
-                            'phone': phone, 'email': email, 'patient_type': 'New'
-                        }
-                        st.info(f"👋 Welcome, {first_name}! Let's get you set up as a new patient.")
-                    
-                    st.session_state.step = 'scheduling'
-                    st.rerun()
+                    st.session_state.current_patient = {
+                        'first_name': first_name, 'last_name': last_name,
+                        'date_of_birth': dob.strftime('%m/%d/%Y'),
+                        'phone': phone, 'email': email, 'patient_type': 'New'
+                    }
+                    st.info(f"👋 Welcome, {first_name}! Let's get you set up as a new patient.")
+                
+                st.session_state.step = 'scheduling'
+                st.rerun()
 
 def render_scheduling_form(agent):
-    render_progress_stepper() # Render stepper for this step
+    render_progress_stepper()
     patient = st.session_state.current_patient
     patient_type = patient.get('patient_type', 'New')
     duration = 60 if patient_type == 'New' else 30
@@ -436,7 +428,6 @@ def render_scheduling_form(agent):
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            # FIX: Add all doctors from the dataset
             doctors = ['Dr. Sarah Chen', 'Dr. Michael Rodriguez', 'Dr. Emily Johnson', 'Dr. Robert Kim']
             doctor = st.selectbox("Preferred Doctor 👨‍⚕️", doctors)
         with col2:
@@ -460,7 +451,7 @@ def render_scheduling_form(agent):
             st.rerun()
 
 def render_confirmation_page():
-    render_progress_stepper() # Render stepper for this step
+    render_progress_stepper()
     appointment = st.session_state.appointment_data
     st.balloons()
     st.markdown(f"""
@@ -482,12 +473,12 @@ def render_confirmation_page():
     """, unsafe_allow_html=True)
     
     if st.button("🔄 Schedule Another Appointment", use_container_width=True):
-        # Reset state for a new booking
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
 
 # --- MAIN APPLICATION LOGIC ---
+# ## FIX: RESTRUCTURED MAIN FUNCTION TO PREVENT RENDER BUG ##
 def main():
     agent = AISchedulingAgent()
     
