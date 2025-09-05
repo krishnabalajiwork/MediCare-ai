@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, date
 import random
 import os
+import io
 
 # Configure page with medical theme
 st.set_page_config(
@@ -818,6 +819,29 @@ def display_reminder_system(appointment):
 """
     st.markdown(reminder_html, unsafe_allow_html=True)
 
+def generate_ics_file(appointment):
+    """Generates an .ics calendar file content from appointment details."""
+    start_time_str = f"{appointment['date']} {appointment['time']}"
+    start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M')
+    end_time = start_time + timedelta(minutes=appointment['duration'])
+
+    # Format for ICS file
+    start_utc = start_time.strftime('%Y%m%dT%H%M%S')
+    end_utc = end_time.strftime('%Y%m%dT%H%M%S')
+
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:Medical Appointment: {appointment['patient_name']}
+DTSTART:{start_utc}
+DTEND:{end_utc}
+LOCATION:{appointment['location']}
+DESCRIPTION:Appointment with {appointment['doctor']}. Appointment ID: {appointment['appointment_id']}.
+END:VEVENT
+END:VCALENDAR
+""".strip()
+    return ics_content
+
 def main():
     # Medical Header
     st.markdown("""
@@ -1193,15 +1217,28 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Download button
+                # Download button for Excel confirmation
                 appointments_df = pd.DataFrame([appointment])
-                csv_data = appointments_df.to_csv(index=False)
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    appointments_df.to_excel(writer, index=False, sheet_name='Appointment')
+                excel_data = output.getvalue()
 
                 st.download_button(
-                    label="📥 Download Appointment Confirmation",
-                    data=csv_data,
-                    file_name=f"appointment_{appointment['appointment_id']}.csv",
-                    mime="text/csv",
+                    label="📥 Download Appointment Confirmation (Excel)",
+                    data=excel_data,
+                    file_name=f"appointment_{appointment['appointment_id']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+                # Generate and offer .ics file for download
+                ics_file = generate_ics_file(appointment)
+                st.download_button(
+                    label="📅 Add to Calendar (.ics)",
+                    data=ics_file,
+                    file_name=f"appointment_{appointment['appointment_id']}.ics",
+                    mime="text/calendar",
                     use_container_width=True
                 )
 
@@ -1270,14 +1307,17 @@ def main():
                 st.subheader("📱 Reminder Schedule")
                 st.dataframe(reminders_df, use_container_width=True)
 
-                # Download reminder schedule
-                csv_reminders = reminders_df.to_csv(index=False)
+                # Download reminder schedule as Excel
+                output_reminders = io.BytesIO()
+                with pd.ExcelWriter(output_reminders, engine='xlsxwriter') as writer:
+                    reminders_df.to_excel(writer, index=False, sheet_name='Reminders')
+                excel_reminders = output_reminders.getvalue()
 
                 st.download_button(
-                    label="📥 Download Reminder Schedule",
-                    data=csv_reminders,
-                    file_name=f"reminders_{appointment['appointment_id']}.csv",
-                    mime="text/csv",
+                    label="📥 Download Reminder Schedule (Excel)",
+                    data=excel_reminders,
+                    file_name=f"reminders_{appointment['appointment_id']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
 
