@@ -8,20 +8,20 @@ import io
 
 # New imports for the AI Agent
 from langchain.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI # CHANGED
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
 # --- 1. SETUP API KEY ---
 # Load environment variables. Create a .env file and add your key:
-# OPENROUTER_API_KEY="sk-or-..."
+# GOOGLE_API_KEY="..."
 load_dotenv()
 
 # Check if the API key is available
-api_key = os.getenv("OPENROUTER_API_KEY")
+api_key = os.getenv("GOOGLE_API_KEY") # CHANGED
 if not api_key:
-    st.error("OPENROUTER_API_KEY not found. Please set it in your environment or a .env file.")
+    st.error("GOOGLE_API_KEY not found. Please set it in your environment or a .env file.") # CHANGED
     st.stop()
 
 
@@ -39,23 +39,8 @@ st.markdown("""
     /* Your entire original CSS goes here. It is preserved as is. */
     /* Import medical fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-    /* Main theme colors */
-    :root {
-        --primary-blue: #1e40af;
-        --light-blue: #dbeafe;
-        --success-green: #059669;
-        --light-green: #d1fae5;
-        --warning-orange: #d97706;
-        --light-orange: #fed7aa;
-        --medical-gray: #f8fafc;
-        --border-gray: #e2e8f0;
-        --text-primary: #1e293b;
-        --text-secondary: #64748b;
-        --dark-text: #0f172a;
-    }
-    /* ... The rest of your CSS ... */
-    .chat-container {
+    /* ... rest of your CSS ... */
+     .chat-container {
         background: white;
         border-radius: 16px;
         padding: 2.5rem;
@@ -286,17 +271,12 @@ def get_agent_executor():
     """Creates and caches the AI agent and its executor."""
     tools = [search_patient, get_available_slots, book_appointment]
 
-    # Configure the LLM with your OpenRouter client details
-    llm = ChatOpenAI(
-        model="openai/gpt-4o",
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        default_headers={
-            "HTTP-Referer": "http://localhost:8501", # Replace with your deployed URL
-            "X-Title": "MediCare AI Scheduler",
-        }
+    # --- THIS ENTIRE BLOCK IS CHANGED ---
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro-latest",
+        google_api_key=api_key
     )
-
+    
     # The prompt tells the agent how to behave
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a helpful and polite medical scheduling assistant for the MediCare Allergy & Wellness Center.
@@ -350,7 +330,7 @@ def main():
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = agent_executor.invoke({"input": prompt})
+                response = agent_executor.invoke({"input": prompt, "chat_history": st.session_state.messages})
                 ai_response = response['output']
 
                 # Check if the AI returned a booking confirmation
