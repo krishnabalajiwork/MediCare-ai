@@ -1,3 +1,10 @@
+# ==============================================================================
+#
+# MediCare AI Scheduling Agent - v2.0 (Senior Refactor)
+#
+# ==============================================================================
+
+# --- Core Libraries ---
 import streamlit as st
 import pandas as pd
 import json
@@ -5,35 +12,82 @@ from datetime import datetime, timedelta, date
 import random
 import os
 import io
+import logging
 
-# New imports for the AI Agent
+# --- AI & Agent Libraries ---
 from langchain.tools import tool
-from langchain_openai import ChatOpenAI # CHANGED
+from langchain_openai import ChatOpenAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field # For robust data validation
 
-# --- 1. SETUP API KEY ---
-# Load environment variables. Create a .env file and add your key:
-# OPENROUTER_API_KEY="sk-or-..."
+# ==============================================================================
+# 1. CONFIGURATION (config.py)
+# In a real app, this would be its own file.
+# ==============================================================================
+
+# --- Logging Configuration ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+class AppConfig:
+    """Holds all static configuration for the application."""
+    PAGE_TITLE = "MediCare AI Scheduling Agent"
+    PAGE_ICON = "🏥"
+    
+    # --- Data File Paths ---
+    PATIENTS_DB_PATH = 'patients_database.csv'
+    SCHEDULE_DB_PATH = 'doctor_schedules.xlsx'
+    
+    # --- Doctor & Location Mapping ---
+    DOCTORS = {
+        'Dr. Sarah Chen': 'Main Clinic - Downtown',
+        'Dr. Michael Rodriguez': 'North Branch',
+        'Dr. Emily Johnson': 'South Branch',
+        'Dr. Robert Kim': 'West Side Clinic'
+    }
+
+    # --- API & Model Configuration ---
+    OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY"
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+    MODEL_NAME = "deepseek/deepseek-chat-v3.1"
+    
+    # These headers are for OpenRouter's service.
+    # In production, the referer URL should be your deployed app's URL.
+    DEFAULT_HEADERS = {
+        "HTTP-Referer": "http://localhost:8501", 
+        "X-Title": "MediCare AI Scheduler",
+    }
+
+# Instantiate config
+CONFIG = AppConfig()
+
+
+# ==============================================================================
+# 2. API KEY SETUP
+# ==============================================================================
+
 load_dotenv()
+api_key = os.getenv(CONFIG.OPENROUTER_API_KEY_ENV)
 
-# Check if the API key is available
-api_key = os.getenv("OPENROUTER_API_KEY") # CHANGED
 if not api_key:
-    st.error("OPENROUTER_API_KEY not found. Please set it in your environment or a .env file.") # CHANGED
+    st.error(f"{CONFIG.OPENROUTER_API_KEY_ENV} not found. Please set it in your environment or a .env file.")
     st.stop()
 
 
-# Configure page with medical theme
+# ==============================================================================
+# 3. PAGE AND UI SETUP
+# ==============================================================================
+
 st.set_page_config(
-    page_title="MediCare AI Scheduling Agent", 
-    page_icon="🏥", 
+    page_title=CONFIG.PAGE_TITLE, 
+    page_icon=CONFIG.PAGE_ICON, 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS (your original CSS is preserved)
+# Your original CSS is preserved for its excellent styling.
+# In a larger project, this would be loaded from a separate .css file.
 st.markdown("""
 <style>
     /* Your entire original CSS goes here. It is preserved as is. */
@@ -125,61 +179,75 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- 2. DATA LOADING & UI HELPERS ---
+# ==============================================================================
+# 4. DATA MANAGEMENT & STATE
+# ==============================================================================
 
 @st.cache_data
 def load_data(file_path, is_excel=False):
-    """Loads data from CSV or Excel file."""
+    """Loads data from CSV or Excel file with error handling."""
     try:
         if is_excel:
             return pd.read_excel(file_path, sheet_name='Full_Schedule')
         else:
             return pd.read_csv(file_path)
     except FileNotFoundError:
-        st.error(f"Data file not found: {file_path}")
+        logging.error(f"Data file not found at path: {file_path}")
+        return pd.DataFrame()
+    except Exception as e:
+        logging.error(f"Error loading data from {file_path}: {e}")
         return pd.DataFrame()
 
-patients_df = load_data('patients_database.csv')
-schedule_df = load_data('doctor_schedules.xlsx', is_excel=True)
-
-def display_appointment_card(appointment):
-    """Your original function to display the appointment card."""
-    appointment_html = f"""
-    <div class="appointment-card">
-        <div class="appointment-header">
-            <div class="appointment-id">Appointment ID: {appointment['appointment_id']}</div>
-            <h3 class="appointment-title">Your Appointment Details</h3>
-        </div>
-        <div class="appointment-grid">
-            <div>
-                <div class="appointment-item">Patient: {appointment['patient_name']}</div>
-                <div class="appointment-item">Doctor: {appointment['doctor']}</div>
-                <div class="appointment-item">Date: {appointment['date']}</div>
-                <div class="appointment-item">Time: {appointment['time']}</div>
-            </div>
-            <div>
-                <div class="appointment-item">Duration: {appointment['duration']} minutes</div>
-                <div class="appointment-item">Location: {appointment['location']}</div>
-                <div class="appointment-item">Type: {appointment['patient_type']}</div>
-                <div class="appointment-item">Status: {appointment['status']}</div>
-            </div>
-        </div>
-    </div>
-    """
-    st.markdown(appointment_html, unsafe_allow_html=True)
+# Initialize dataframes in session state to make them mutable for booking/cancellations
+if 'patients_df' not in st.session_state:
+    st.session_state.patients_df = load_data(CONFIG.PATIENTS_DB_PATH)
+if 'schedule_df' not in st.session_state:
+    st.session_state.schedule_df = load_data(CONFIG.SCHEDULE_DB_PATH, is_excel=True)
+    # Ensure schedule has a 'Status' column for tracking bookings
+    if 'Status' not in st.session_state.schedule_df.columns:
+        st.session_state.schedule_df['Status'] = 'Available'
+if 'bookings_df' not in st.session_state:
+    # This simulates a database of confirmed appointments
+    st.session_state.bookings_df = pd.DataFrame(columns=['appointment_id', 'patient_name', 'doctor', 'date', 'time'])
 
 
-# --- 3. AI AGENT TOOLS ---
+# ==============================================================================
+# 5. TOOL SCHEMAS (schemas.py)
+# Using Pydantic for validated, type-safe inputs to our tools.
+# ==============================================================================
 
-@tool
+class PatientSearchInput(BaseModel):
+    first_name: str = Field(description="The first name of the patient.")
+    last_name: str = Field(description="The last name of the patient.")
+
+class AvailabilityInput(BaseModel):
+    doctor_name: str = Field(description="The full name of the doctor, e.g., 'Dr. Sarah Chen'.")
+    preferred_date: str = Field(description="The preferred date for the appointment in 'YYYY-MM-DD' format.")
+
+class BookingInput(BaseModel):
+    doctor: str = Field(description="The full name of the doctor for the appointment.")
+    date: str = Field(description="The confirmed date of the appointment in 'YYYY-MM-DD' format.")
+    time: str = Field(description="The confirmed time of the appointment in 'HH:MM' format.")
+
+class CancellationInput(BaseModel):
+    appointment_id: str = Field(description="The unique ID of the appointment to be cancelled, e.g., 'APT12345'.")
+
+
+# ==============================================================================
+# 6. AI AGENT TOOLS (tools.py)
+# ==============================================================================
+
+@tool(args_schema=PatientSearchInput)
 def search_patient(first_name: str, last_name: str) -> str:
     """
-    Searches the patient database by first_name and last_name.
-    Returns the patient's full name and type ('New' or 'Returning').
-    Also stores the found patient's data in the session state.
+    Searches the patient database by first and last name. Returns the patient's
+    details and type. Stores the found patient's data in the session state.
     """
+    logging.info(f"Searching for patient: {first_name} {last_name}")
+    patients_df = st.session_state.patients_df
     if patients_df.empty:
-        return "Error: Patient database is not loaded."
+        logging.warning("Patient database is empty.")
+        return "Error: Patient database could not be loaded."
 
     match = patients_df[
         (patients_df['first_name'].str.lower() == first_name.lower()) & 
@@ -189,178 +257,274 @@ def search_patient(first_name: str, last_name: str) -> str:
     if not match.empty:
         patient_data = match.iloc[0].to_dict()
         st.session_state.current_patient = patient_data
+        logging.info(f"Found returning patient: {patient_data['full_name']}")
         return json.dumps({
             "status": "Patient Found",
             "full_name": patient_data['full_name'],
             "patient_type": patient_data['patient_type']
         })
     else:
-        # If not found, create a new temporary record
         new_patient_data = {
-            'first_name': first_name,
-            'last_name': last_name,
-            'full_name': f"{first_name} {last_name}",
-            'patient_type': 'New'
+            'first_name': first_name, 'last_name': last_name,
+            'full_name': f"{first_name} {last_name}", 'patient_type': 'New'
         }
         st.session_state.current_patient = new_patient_data
+        logging.info(f"Identified new patient: {new_patient_data['full_name']}")
         return json.dumps({
             "status": "Patient Not Found",
             "full_name": new_patient_data['full_name'],
             "patient_type": "New"
         })
 
-@tool
+@tool(args_schema=AvailabilityInput)
 def get_available_slots(doctor_name: str, preferred_date: str) -> str:
     """
-    Finds available time slots for a specific doctor on a preferred date.
-    The date should be in 'YYYY-MM-DD' format.
+    Finds genuinely available 30-minute time slots for a specific doctor on a
+    preferred date by checking the schedule.
     """
+    logging.info(f"Checking availability for {doctor_name} on {preferred_date}")
+    schedule_df = st.session_state.schedule_df
     if schedule_df.empty:
-        return "Error: Doctor schedule is not loaded."
+        logging.warning("Doctor schedule is empty.")
+        return "Error: Doctor schedule could not be loaded."
         
     try:
-        # This is a simplified logic. A real app would have more complex availability checks.
-        available_times = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00']
+        # Convert date column to string for comparison
+        schedule_df['Date'] = pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d')
+        
+        # Filter for the specific doctor and date, and where the slot is 'Available'
+        slots = schedule_df[
+            (schedule_df['Doctor'] == doctor_name) &
+            (schedule_df['Date'] == preferred_date) &
+            (schedule_df['Status'].str.lower() == 'available')
+        ]
+        
+        if slots.empty:
+            logging.info("No available slots found.")
+            return f"Unfortunately, there are no available slots for {doctor_name} on {preferred_date}."
+        
+        available_times = sorted(slots['Time'].tolist())
+        logging.info(f"Found available slots: {available_times}")
         return f"Available slots for {doctor_name} on {preferred_date} are: {', '.join(available_times)}."
     except Exception as e:
-        return f"Could not check availability. Error: {e}"
+        logging.error(f"Error checking availability: {e}")
+        return f"I encountered an error while checking the schedule. Please try again."
 
-@tool
+@tool(args_schema=BookingInput)
 def book_appointment(doctor: str, date: str, time: str) -> str:
     """
-    Books an appointment for the patient stored in the session state.
-    Requires the doctor's name, and the desired date and time.
-    Use this only after confirming the patient's identity.
+    Books an appointment for the currently identified patient. This action is final
+    and modifies the schedule.
     """
+    logging.info(f"Attempting to book appointment for Dr. {doctor} at {date} {time}")
     if 'current_patient' not in st.session_state or not st.session_state.current_patient:
-        return "Error: No patient has been identified. Please use search_patient first."
+        logging.warning("Booking attempt failed: No patient identified.")
+        return "Error: I can't book an appointment because I haven't identified a patient yet. Please provide the patient's name first."
 
     patient_data = st.session_state.current_patient
     patient_type = patient_data.get('patient_type', 'New')
     duration = 60 if patient_type == 'New' else 30
     
+    # --- Simulate Database Transaction ---
+    # 1. Check if slot is still available
+    schedule_df = st.session_state.schedule_df
+    slot_index = schedule_df[
+        (schedule_df['Doctor'] == doctor) &
+        (pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d') == date) &
+        (schedule_df['Time'] == time) &
+        (schedule_df['Status'].str.lower() == 'available')
+    ].index
+
+    if slot_index.empty:
+        logging.warning("Booking failed: Slot is no longer available.")
+        return f"I'm sorry, the {time} slot with {doctor} on {date} was just taken. Please check for other available slots."
+    
+    # 2. Update schedule to mark slot as Booked
+    st.session_state.schedule_df.loc[slot_index, 'Status'] = 'Booked'
+    
+    # 3. Create booking record
     appointment_id = f"APT{random.randint(10000, 99999)}"
-    location_map = {
-        'Dr. Sarah Chen': 'Main Clinic - Downtown',
-        'Dr. Michael Rodriguez': 'North Branch',
-        'Dr. Emily Johnson': 'South Branch',
-        'Dr. Robert Kim': 'West Side Clinic'
-    }
-
     booking_data = {
-        'appointment_id': appointment_id,
-        'patient_name': patient_data.get('full_name'),
-        'doctor': doctor,
-        'date': date,
-        'time': time,
-        'duration': duration,
-        'location': location_map.get(doctor, 'Main Clinic - Downtown'),
-        'patient_type': patient_type,
-        'status': 'Confirmed',
+        'appointment_id': appointment_id, 'patient_name': patient_data.get('full_name'),
+        'doctor': doctor, 'date': date, 'time': time, 'duration': duration,
+        'location': CONFIG.DOCTORS.get(doctor, 'Main Clinic - Downtown'),
+        'patient_type': patient_type, 'status': 'Confirmed',
     }
-
+    
+    # 4. Add to bookings "database"
+    new_booking = pd.DataFrame([booking_data])
+    st.session_state.bookings_df = pd.concat([st.session_state.bookings_df, new_booking], ignore_index=True)
+    
     st.session_state.appointment_data = booking_data
-    # Return a JSON string so the AI knows all details of the booking
+    logging.info(f"Successfully booked appointment {appointment_id}.")
     return json.dumps(booking_data)
 
+@tool(args_schema=CancellationInput)
+def cancel_appointment(appointment_id: str) -> str:
+    """
+    Cancels a previously booked appointment using its unique ID. This action
+    frees up the slot on the doctor's schedule.
+    """
+    logging.info(f"Attempting to cancel appointment {appointment_id}")
+    bookings_df = st.session_state.bookings_df
+    
+    if bookings_df[bookings_df['appointment_id'] == appointment_id].empty:
+        logging.warning(f"Cancellation failed: Appointment ID {appointment_id} not found.")
+        return f"I couldn't find an appointment with the ID '{appointment_id}'. Please double-check the ID."
+        
+    # Get booking details before cancelling
+    booking_details = bookings_df[bookings_df['appointment_id'] == appointment_id].iloc[0]
+    
+    # --- Simulate Database Transaction ---
+    # 1. Free up the slot in the main schedule
+    schedule_df = st.session_state.schedule_df
+    slot_index = schedule_df[
+        (schedule_df['Doctor'] == booking_details['doctor']) &
+        (pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d') == booking_details['date']) &
+        (schedule_df['Time'] == booking_details['time'])
+    ].index
+    
+    if not slot_index.empty:
+        st.session_state.schedule_df.loc[slot_index, 'Status'] = 'Available'
+    
+    # 2. Remove the booking from the bookings "database"
+    st.session_state.bookings_df = bookings_df[bookings_df['appointment_id'] != appointment_id]
+    
+    logging.info(f"Successfully cancelled appointment {appointment_id}.")
+    return f"Success! The appointment {appointment_id} for {booking_details['patient_name']} has been cancelled."
 
-# --- 4. AGENT SETUP ---
+
+# ==============================================================================
+# 7. AGENT SETUP (agent.py)
+# ==============================================================================
 
 @st.cache_resource
 def get_agent_executor():
     """Creates and caches the AI agent and its executor."""
-    tools = [search_patient, get_available_slots, book_appointment]
+    tools = [search_patient, get_available_slots, book_appointment, cancel_appointment]
 
-    # --- THIS ENTIRE BLOCK IS CHANGED BACK TO OPENROUTER ---
     llm = ChatOpenAI(
-        model="deepseek/deepseek-chat-v3.1", # Using the free model you provided
+        model=CONFIG.MODEL_NAME,
         api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        default_headers={
-            "HTTP-Referer": "http://localhost:8501", # Replace with your deployed URL
-            "X-Title": "MediCare AI Scheduler",
-        }
+        base_url=CONFIG.OPENROUTER_BASE_URL,
+        default_headers=CONFIG.DEFAULT_HEADERS
     )
     
-    # The prompt tells the agent how to behave
+    system_prompt = """You are a highly capable and polite medical scheduling assistant for the MediCare Allergy & Wellness Center.
+    Your main purpose is to help users book or cancel appointments.
+
+    **Conversation Flow:**
+    1.  Always start by greeting the user and asking for their full name to begin any process.
+    2.  Use the `search_patient` tool to identify them. The user's status (New/Returning) determines the appointment duration (60/30 mins).
+    3.  To book, gather their preferred doctor and date. Use `get_available_slots` to find openings.
+    4.  Present the options and let the user choose a time.
+    5.  Once all details are confirmed, use `book_appointment` to finalize. This is a critical step, so confirm all details before calling it.
+    6.  To cancel, ask for the appointment ID and use the `cancel_appointment` tool.
+    
+    **Important Rules:**
+    -   Be conversational and clear. Use the chat history for context.
+    -   If a tool returns an error, apologize to the user and explain the issue clearly (e.g., "I'm sorry, that time slot was just taken.").
+    -   After a successful booking, your final response must be ONLY the JSON output from the `book_appointment` tool. This is a system requirement for displaying the confirmation card.
+    """
+    
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful and polite medical scheduling assistant for the MediCare Allergy & Wellness Center.
-        Your goal is to book an appointment for the user.
-        Follow these steps:
-        1. Greet the user and ask for their full name to begin.
-        2. Use the search_patient tool to find them in the system.
-        3. Based on whether they are a 'New' or 'Returning' patient, inform them of their appointment duration (60 mins for New, 30 mins for Returning).
-        4. Ask for their preferred doctor and date. Available doctors are Dr. Sarah Chen, Dr. Michael Rodriguez, Dr. Emily Johnson, and Dr. Robert Kim.
-        5. Use the get_available_slots tool to find open times.
-        6. Ask the user to pick a time from the list.
-        7. Once they confirm a time, use the book_appointment tool to finalize.
-        8. After booking, respond ONLY with the JSON output from the book_appointment tool. Do not add any other text. Start your response with 'BOOKING_CONFIRMED:' followed by the JSON data.
-        """),
+        ("system", system_prompt),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{input}"),
         ("placeholder", "{agent_scratchpad}"),
     ])
 
     agent = create_tool_calling_agent(llm, tools, prompt)
+    logging.info("Agent created successfully.")
     return AgentExecutor(agent=agent, tools=tools, verbose=True)
 
 
-# --- 5. MAIN APP LOGIC ---
+# ==============================================================================
+# 8. UI COMPONENTS (ui_components.py)
+# ==============================================================================
 
-def main():
-    # Medical Header (preserved)
+def display_main_header():
+    """Renders the main header of the application."""
     st.markdown("""
     <div class="medical-header">
         <h1>🏥 MediCare AI Scheduling Agent</h1>
         <p>Your Personal Conversational Scheduling Assistant</p>
     </div>
     """, unsafe_allow_html=True)
+
+def render_chat_message(message):
+    """Renders a single chat message, handling special formats like appointment cards."""
+    if isinstance(message.get("content"), dict) and message["content"].get("type") == "appointment_card":
+        display_appointment_card(message["content"]["data"])
+    else:
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
+
+def is_valid_json(json_string):
+    """Checks if a string is valid JSON."""
+    try:
+        json.loads(json_string)
+        # Further check if it looks like our booking data
+        data = json.loads(json_string)
+        return 'appointment_id' in data and 'doctor' in data
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+# ==============================================================================
+# 9. MAIN APPLICATION (app.py)
+# ==============================================================================
+
+def main():
+    """Main function to run the Streamlit application."""
+    display_main_header()
     
     agent_executor = get_agent_executor()
 
-    # Chat UI
+    # Initialize chat history
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "Welcome to MediCare! I'm your AI assistant. To get started, please tell me your full name."}]
+        st.session_state.messages = [{"role": "assistant", "content": "Welcome to MediCare! I can help you book or cancel an appointment. To get started, please tell me your full name."}]
 
+    # Display chat history
     for msg in st.session_state.messages:
-        # Check if the message content is a booking confirmation
-        if isinstance(msg["content"], dict) and msg["content"].get("type") == "appointment_card":
-            display_appointment_card(msg["content"]["data"])
-        else:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
+        render_chat_message(msg)
     
-    if prompt := st.chat_input("Your message here..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.chat_message("user").write(prompt)
+    # Handle user input
+    if user_input := st.chat_input("How can I help you today?"):
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.write(user_input)
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = agent_executor.invoke({"input": prompt, "chat_history": st.session_state.messages})
-                ai_response = response['output']
+                # Prepare chat history for the agent (excluding the last user message)
+                history = st.session_state.messages[:-1]
 
-                # Check if the AI returned a booking confirmation
-                if ai_response.startswith("BOOKING_CONFIRMED:"):
-                    try:
-                        # Extract and parse the JSON data
-                        json_str = ai_response.replace("BOOKING_CONFIRMED:", "").strip()
-                        booking_data = json.loads(json_str)
-                        
-                        # Display the card and store it as a special message type
+                try:
+                    response = agent_executor.invoke({
+                        "input": user_input,
+                        "chat_history": history
+                    })
+                    ai_response = response['output']
+
+                    # Check if the AI returned a valid booking confirmation JSON
+                    if is_valid_json(ai_response):
+                        booking_data = json.loads(ai_response)
                         display_appointment_card(booking_data)
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": {
-                                "type": "appointment_card",
-                                "data": booking_data
-                            }
+                            "content": {"type": "appointment_card", "data": booking_data}
                         })
-                    except json.JSONDecodeError:
-                        st.error("Failed to process booking confirmation.")
-                        st.write(ai_response) # Show raw response on error
+                    else:
+                        # Treat as a regular text response
+                        st.write(ai_response)
                         st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                else:
-                    st.write(ai_response)
-                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                
+                except Exception as e:
+                    logging.error(f"An error occurred during agent invocation: {e}")
+                    error_message = "I'm sorry, I've encountered a technical issue. Please try rephrasing your request or restarting the conversation."
+                    st.error(error_message)
+                    st.session_state.messages.append({"role": "assistant", "content": error_message})
+
 
 if __name__ == "__main__":
     main()
