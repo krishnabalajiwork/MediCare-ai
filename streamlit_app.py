@@ -102,12 +102,10 @@ def load_data(file_path, is_excel=False):
     try:
         if is_excel:
             df = pd.read_excel(file_path)
-            # Ensure the 'Date' column exists and is the correct type
             if 'Date' in df.columns:
                 df['Date'] = pd.to_datetime(df['Date'])
             else:
-                logging.error(f"'Date' column not found in {file_path}")
-                st.error("Data error: Schedule file is missing the 'Date' column.")
+                st.error("Data error: Your 'doctor_schedules.xlsx' file is missing the 'Date' column.")
             return df
         else:
             return pd.read_csv(file_path)
@@ -281,7 +279,7 @@ def get_agent_executor():
     llm = ChatGoogleGenerativeAI(
         model=CONFIG.MODEL_NAME,
         google_api_key=api_key,
-        convert_system_message_to_human=True # For compatibility with Gemini
+        convert_system_message_to_human=True
     )
     
     system_prompt = """You are a polite medical scheduling assistant for MediCare. Your goal is to help users book or cancel appointments by gathering information step-by-step.
