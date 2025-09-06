@@ -4,6 +4,6 @@ openpyxl
 xlsxwriter
 python-dateutil
 langchain
-langchain-openai
+langchain-google-genai
 python-dotenv
 pydantic
