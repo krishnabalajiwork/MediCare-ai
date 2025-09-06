@@ -8,20 +8,20 @@ import io
 
 # New imports for the AI Agent
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI # CHANGED
+from langchain_openai import ChatOpenAI # CHANGED
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
 # --- 1. SETUP API KEY ---
 # Load environment variables. Create a .env file and add your key:
-# GOOGLE_API_KEY="..."
+# OPENROUTER_API_KEY="sk-or-..."
 load_dotenv()
 
 # Check if the API key is available
-api_key = os.getenv("GOOGLE_API_KEY") # CHANGED
+api_key = os.getenv("OPENROUTER_API_KEY") # CHANGED
 if not api_key:
-    st.error("GOOGLE_API_KEY not found. Please set it in your environment or a .env file.") # CHANGED
+    st.error("OPENROUTER_API_KEY not found. Please set it in your environment or a .env file.") # CHANGED
     st.stop()
 
 
@@ -271,10 +271,15 @@ def get_agent_executor():
     """Creates and caches the AI agent and its executor."""
     tools = [search_patient, get_available_slots, book_appointment]
 
-    # --- THIS ENTIRE BLOCK IS CHANGED ---
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro-latest",
-        google_api_key=api_key
+    # --- THIS ENTIRE BLOCK IS CHANGED BACK TO OPENROUTER ---
+    llm = ChatOpenAI(
+        model="deepseek/deepseek-chat-v3.1", # Using the free model you provided
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "HTTP-Referer": "http://localhost:8501", # Replace with your deployed URL
+            "X-Title": "MediCare AI Scheduler",
+        }
     )
     
     # The prompt tells the agent how to behave
