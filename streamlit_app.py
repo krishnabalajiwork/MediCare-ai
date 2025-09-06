@@ -16,7 +16,7 @@ import logging
 
 # --- AI & Agent Libraries ---
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI # CHANGED
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
@@ -43,7 +43,6 @@ class AppConfig:
         'Dr. Robert Kim': 'West Side Clinic'
     }
     
-    # UPDATED for Google Gemini
     GOOGLE_API_KEY_ENV = "GOOGLE_API_KEY"
     MODEL_NAME = "gemini-1.5-pro-latest"
 
@@ -102,8 +101,13 @@ st.markdown("""
 def load_data(file_path, is_excel=False):
     try:
         if is_excel:
-            df = pd.read_excel(file_path, sheet_name='Full_Schedule')
-            df['Date'] = pd.to_datetime(df['Date'])
+            df = pd.read_excel(file_path)
+            # Ensure the 'Date' column exists and is the correct type
+            if 'Date' in df.columns:
+                df['Date'] = pd.to_datetime(df['Date'])
+            else:
+                logging.error(f"'Date' column not found in {file_path}")
+                st.error("Data error: Schedule file is missing the 'Date' column.")
             return df
         else:
             return pd.read_csv(file_path)
@@ -151,6 +155,10 @@ class CancellationInput(BaseModel):
 
 @tool(args_schema=PatientSearchInput)
 def search_patient(first_name: str, last_name: str) -> str:
+    """
+    Searches the patient database by first and last name. Returns the patient's
+    details and type. Stores the found patient's data in the session state.
+    """
     logging.info(f"Searching for patient: {first_name} {last_name}")
     patients_df = st.session_state.patients_df
     if patients_df.empty: return "Error: Patient database could not be loaded."
@@ -173,6 +181,10 @@ def search_patient(first_name: str, last_name: str) -> str:
 
 @tool(args_schema=AvailabilityInput)
 def get_available_slots(doctor_name: str, preferred_date: str) -> str:
+    """
+    Finds genuinely available 30-minute time slots for a specific doctor on a
+    preferred date by checking the schedule.
+    """
     logging.info(f"Checking availability for {doctor_name} on {preferred_date}")
     schedule_df = st.session_state.schedule_df
     if schedule_df.empty: return "Error: Doctor schedule could not be loaded."
@@ -194,6 +206,10 @@ def get_available_slots(doctor_name: str, preferred_date: str) -> str:
 
 @tool(args_schema=BookingInput)
 def book_appointment(doctor: str, date: str, time: str) -> str:
+    """
+    Books an appointment for the currently identified patient. This action is final
+    and modifies the schedule.
+    """
     logging.info(f"Attempting to book for Dr. {doctor} at {date} {time}")
     if 'current_patient' not in st.session_state: return "Error: Patient not identified. Please get the patient's name first."
 
@@ -227,6 +243,10 @@ def book_appointment(doctor: str, date: str, time: str) -> str:
 
 @tool(args_schema=CancellationInput)
 def cancel_appointment(appointment_id: str) -> str:
+    """
+    Cancels a previously booked appointment using its unique ID. This action
+    frees up the slot on the doctor's schedule.
+    """
     logging.info(f"Attempting to cancel appointment {appointment_id}")
     bookings_df = st.session_state.bookings_df
     
@@ -260,7 +280,8 @@ def get_agent_executor():
 
     llm = ChatGoogleGenerativeAI(
         model=CONFIG.MODEL_NAME,
-        google_api_key=api_key
+        google_api_key=api_key,
+        convert_system_message_to_human=True # For compatibility with Gemini
     )
     
     system_prompt = """You are a polite medical scheduling assistant for MediCare. Your goal is to help users book or cancel appointments by gathering information step-by-step.
