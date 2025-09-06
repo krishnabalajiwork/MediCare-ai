@@ -1,6 +1,6 @@
 # ==============================================================================
 #
-# MediCare AI Scheduling Agent - v2.0 (Senior Refactor)
+# MediCare AI Scheduling Agent - v2.1 (Final Fix)
 #
 # ==============================================================================
 
@@ -24,10 +24,8 @@ from pydantic import BaseModel, Field # For robust data validation
 
 # ==============================================================================
 # 1. CONFIGURATION (config.py)
-# In a real app, this would be its own file.
 # ==============================================================================
 
-# --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class AppConfig:
@@ -35,11 +33,9 @@ class AppConfig:
     PAGE_TITLE = "MediCare AI Scheduling Agent"
     PAGE_ICON = "🏥"
     
-    # --- Data File Paths ---
     PATIENTS_DB_PATH = 'patients_database.csv'
     SCHEDULE_DB_PATH = 'doctor_schedules.xlsx'
     
-    # --- Doctor & Location Mapping ---
     DOCTORS = {
         'Dr. Sarah Chen': 'Main Clinic - Downtown',
         'Dr. Michael Rodriguez': 'North Branch',
@@ -47,19 +43,19 @@ class AppConfig:
         'Dr. Robert Kim': 'West Side Clinic'
     }
 
-    # --- API & Model Configuration ---
     OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY"
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
     MODEL_NAME = "deepseek/deepseek-chat-v3.1"
     
-    # These headers are for OpenRouter's service.
-    # In production, the referer URL should be your deployed app's URL.
+    # CRITICAL: This URL should match your deployed Streamlit app URL
+    # I've taken this from your browser tabs in previous screenshots.
+    APP_URL = "https://krishnabalajiwork-medicare-ai-streamlit-app-axb21g.streamlit.app" 
+    
     DEFAULT_HEADERS = {
-        "HTTP-Referer": "http://localhost:8501", 
+        "HTTP-Referer": APP_URL, 
         "X-Title": "MediCare AI Scheduler",
     }
 
-# Instantiate config
 CONFIG = AppConfig()
 
 
@@ -71,8 +67,12 @@ load_dotenv()
 api_key = os.getenv(CONFIG.OPENROUTER_API_KEY_ENV)
 
 if not api_key:
-    st.error(f"{CONFIG.OPENROUTER_API_KEY_ENV} not found. Please set it in your environment or a .env file.")
-    st.stop()
+    # Attempt to get the key from Streamlit secrets if not in .env
+    try:
+        api_key = st.secrets[CONFIG.OPENROUTER_API_KEY_ENV]
+    except (FileNotFoundError, KeyError):
+        st.error(f"{CONFIG.OPENROUTER_API_KEY_ENV} not found. Please set it in your Streamlit secrets or a .env file.")
+        st.stop()
 
 
 # ==============================================================================
@@ -86,8 +86,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Your original CSS is preserved for its excellent styling.
-# In a larger project, this would be loaded from a separate .css file.
 st.markdown("""
 <style>
     /* Your entire original CSS goes here. It is preserved as is. */
@@ -198,22 +196,18 @@ def load_data(file_path, is_excel=False):
         logging.error(f"Error loading data from {file_path}: {e}")
         return pd.DataFrame()
 
-# Initialize dataframes in session state to make them mutable for booking/cancellations
 if 'patients_df' not in st.session_state:
     st.session_state.patients_df = load_data(CONFIG.PATIENTS_DB_PATH)
 if 'schedule_df' not in st.session_state:
     st.session_state.schedule_df = load_data(CONFIG.SCHEDULE_DB_PATH, is_excel=True)
-    # Ensure schedule has a 'Status' column for tracking bookings
-    if 'Status' not in st.session_state.schedule_df.columns:
+    if 'Status' not in st.session_state.schedule_df.columns and not st.session_state.schedule_df.empty:
         st.session_state.schedule_df['Status'] = 'Available'
 if 'bookings_df' not in st.session_state:
-    # This simulates a database of confirmed appointments
     st.session_state.bookings_df = pd.DataFrame(columns=['appointment_id', 'patient_name', 'doctor', 'date', 'time'])
 
 
 # ==============================================================================
 # 5. TOOL SCHEMAS (schemas.py)
-# Using Pydantic for validated, type-safe inputs to our tools.
 # ==============================================================================
 
 class PatientSearchInput(BaseModel):
@@ -289,13 +283,11 @@ def get_available_slots(doctor_name: str, preferred_date: str) -> str:
         return "Error: Doctor schedule could not be loaded."
         
     try:
-        # Convert date column to string for comparison
-        schedule_df['Date'] = pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d')
+        schedule_df['Date_str'] = pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d')
         
-        # Filter for the specific doctor and date, and where the slot is 'Available'
         slots = schedule_df[
             (schedule_df['Doctor'] == doctor_name) &
-            (schedule_df['Date'] == preferred_date) &
+            (schedule_df['Date_str'] == preferred_date) &
             (schedule_df['Status'].str.lower() == 'available')
         ]
         
@@ -325,12 +317,12 @@ def book_appointment(doctor: str, date: str, time: str) -> str:
     patient_type = patient_data.get('patient_type', 'New')
     duration = 60 if patient_type == 'New' else 30
     
-    # --- Simulate Database Transaction ---
-    # 1. Check if slot is still available
     schedule_df = st.session_state.schedule_df
+    schedule_df['Date_str'] = pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d')
+    
     slot_index = schedule_df[
         (schedule_df['Doctor'] == doctor) &
-        (pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d') == date) &
+        (schedule_df['Date_str'] == date) &
         (schedule_df['Time'] == time) &
         (schedule_df['Status'].str.lower() == 'available')
     ].index
@@ -339,10 +331,8 @@ def book_appointment(doctor: str, date: str, time: str) -> str:
         logging.warning("Booking failed: Slot is no longer available.")
         return f"I'm sorry, the {time} slot with {doctor} on {date} was just taken. Please check for other available slots."
     
-    # 2. Update schedule to mark slot as Booked
     st.session_state.schedule_df.loc[slot_index, 'Status'] = 'Booked'
     
-    # 3. Create booking record
     appointment_id = f"APT{random.randint(10000, 99999)}"
     booking_data = {
         'appointment_id': appointment_id, 'patient_name': patient_data.get('full_name'),
@@ -351,7 +341,6 @@ def book_appointment(doctor: str, date: str, time: str) -> str:
         'patient_type': patient_type, 'status': 'Confirmed',
     }
     
-    # 4. Add to bookings "database"
     new_booking = pd.DataFrame([booking_data])
     st.session_state.bookings_df = pd.concat([st.session_state.bookings_df, new_booking], ignore_index=True)
     
@@ -372,22 +361,20 @@ def cancel_appointment(appointment_id: str) -> str:
         logging.warning(f"Cancellation failed: Appointment ID {appointment_id} not found.")
         return f"I couldn't find an appointment with the ID '{appointment_id}'. Please double-check the ID."
         
-    # Get booking details before cancelling
     booking_details = bookings_df[bookings_df['appointment_id'] == appointment_id].iloc[0]
     
-    # --- Simulate Database Transaction ---
-    # 1. Free up the slot in the main schedule
     schedule_df = st.session_state.schedule_df
+    schedule_df['Date_str'] = pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d')
+    
     slot_index = schedule_df[
         (schedule_df['Doctor'] == booking_details['doctor']) &
-        (pd.to_datetime(schedule_df['Date']).dt.strftime('%Y-%m-%d') == booking_details['date']) &
+        (schedule_df['Date_str'] == booking_details['date']) &
         (schedule_df['Time'] == booking_details['time'])
     ].index
     
     if not slot_index.empty:
         st.session_state.schedule_df.loc[slot_index, 'Status'] = 'Available'
     
-    # 2. Remove the booking from the bookings "database"
     st.session_state.bookings_df = bookings_df[bookings_df['appointment_id'] != appointment_id]
     
     logging.info(f"Successfully cancelled appointment {appointment_id}.")
@@ -452,21 +439,48 @@ def display_main_header():
     </div>
     """, unsafe_allow_html=True)
 
+def display_appointment_card_from_dict(appointment):
+    """Renders the appointment card from a dictionary."""
+    appointment_html = f"""
+    <div class="appointment-card">
+        <div class="appointment-header">
+            <div class="appointment-id">Appointment ID: {appointment.get('appointment_id', 'N/A')}</div>
+            <h3 class="appointment-title">Your Appointment Details</h3>
+        </div>
+        <div class="appointment-grid">
+            <div>
+                <div class="appointment-item">Patient: {appointment.get('patient_name', 'N/A')}</div>
+                <div class="appointment-item">Doctor: {appointment.get('doctor', 'N/A')}</div>
+                <div class="appointment-item">Date: {appointment.get('date', 'N/A')}</div>
+                <div class="appointment-item">Time: {appointment.get('time', 'N/A')}</div>
+            </div>
+            <div>
+                <div class="appointment-item">Duration: {appointment.get('duration', 'N/A')} minutes</div>
+                <div class="appointment-item">Location: {appointment.get('location', 'N/A')}</div>
+                <div class="appointment-item">Type: {appointment.get('patient_type', 'N/A')}</div>
+                <div class="appointment-item">Status: {appointment.get('status', 'N/A')}</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(appointment_html, unsafe_allow_html=True)
+
 def render_chat_message(message):
     """Renders a single chat message, handling special formats like appointment cards."""
-    if isinstance(message.get("content"), dict) and message["content"].get("type") == "appointment_card":
-        display_appointment_card(message["content"]["data"])
-    else:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    content = message.get("content", "")
+    role = message.get("role", "assistant")
 
-def is_valid_json(json_string):
-    """Checks if a string is valid JSON."""
+    with st.chat_message(role):
+        if isinstance(content, dict) and content.get("type") == "appointment_card":
+            display_appointment_card_from_dict(content["data"])
+        else:
+            st.write(content)
+
+def is_valid_booking_json(json_string):
+    """Checks if a string is a valid JSON representing a booking confirmation."""
     try:
-        json.loads(json_string)
-        # Further check if it looks like our booking data
         data = json.loads(json_string)
-        return 'appointment_id' in data and 'doctor' in data
+        return isinstance(data, dict) and 'appointment_id' in data and 'doctor' in data
     except (json.JSONDecodeError, TypeError):
         return False
 
@@ -480,24 +494,19 @@ def main():
     
     agent_executor = get_agent_executor()
 
-    # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = [{"role": "assistant", "content": "Welcome to MediCare! I can help you book or cancel an appointment. To get started, please tell me your full name."}]
 
-    # Display chat history
     for msg in st.session_state.messages:
         render_chat_message(msg)
     
-    # Handle user input
     if user_input := st.chat_input("How can I help you today?"):
         st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.write(user_input)
+        render_chat_message({"role": "user", "content": user_input})
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                # Prepare chat history for the agent (excluding the last user message)
-                history = st.session_state.messages[:-1]
+                history = [msg for msg in st.session_state.messages[:-1]]
 
                 try:
                     response = agent_executor.invoke({
@@ -506,16 +515,14 @@ def main():
                     })
                     ai_response = response['output']
 
-                    # Check if the AI returned a valid booking confirmation JSON
-                    if is_valid_json(ai_response):
+                    if is_valid_booking_json(ai_response):
                         booking_data = json.loads(ai_response)
-                        display_appointment_card(booking_data)
+                        display_appointment_card_from_dict(booking_data)
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": {"type": "appointment_card", "data": booking_data}
                         })
                     else:
-                        # Treat as a regular text response
                         st.write(ai_response)
                         st.session_state.messages.append({"role": "assistant", "content": ai_response})
                 
@@ -524,7 +531,6 @@ def main():
                     error_message = "I'm sorry, I've encountered a technical issue. Please try rephrasing your request or restarting the conversation."
                     st.error(error_message)
                     st.session_state.messages.append({"role": "assistant", "content": error_message})
-
 
 if __name__ == "__main__":
     main()
