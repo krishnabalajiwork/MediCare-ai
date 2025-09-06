@@ -1,6 +1,6 @@
 # ==============================================================================
 #
-# MediCare AI Scheduling Agent - v2.1 (Final Fix)
+# MediCare AI Scheduling Agent - v2.2 (Final Version)
 #
 # ==============================================================================
 
@@ -20,7 +20,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field # For robust data validation
+from pydantic import BaseModel, Field
 
 # ==============================================================================
 # 1. CONFIGURATION (config.py)
@@ -47,8 +47,6 @@ class AppConfig:
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
     MODEL_NAME = "deepseek/deepseek-chat-v3.1"
     
-    # CRITICAL: This URL should match your deployed Streamlit app URL
-    # I've taken this from your browser tabs in previous screenshots.
     APP_URL = "https://krishnabalajiwork-medicare-ai-streamlit-app-axb21g.streamlit.app" 
     
     DEFAULT_HEADERS = {
@@ -67,7 +65,6 @@ load_dotenv()
 api_key = os.getenv(CONFIG.OPENROUTER_API_KEY_ENV)
 
 if not api_key:
-    # Attempt to get the key from Streamlit secrets if not in .env
     try:
         api_key = st.secrets[CONFIG.OPENROUTER_API_KEY_ENV]
     except (FileNotFoundError, KeyError):
@@ -439,6 +436,25 @@ def display_main_header():
     </div>
     """, unsafe_allow_html=True)
 
+def setup_sidebar():
+    """Sets up the sidebar with a clear conversation button and status info."""
+    with st.sidebar:
+        st.header("Dashboard")
+        
+        if st.button("🔄 Start New Conversation"):
+            st.session_state.messages = [{"role": "assistant", "content": "Welcome! Please tell me your full name to begin."}]
+            # Clear other session state variables as well
+            st.session_state.pop('current_patient', None)
+            st.session_state.pop('appointment_data', None)
+            st.rerun()
+
+        st.markdown("---")
+        if 'current_patient' in st.session_state and st.session_state.current_patient:
+            st.info(f"**Current Patient:** {st.session_state.current_patient['full_name']} ({st.session_state.current_patient['patient_type']})")
+        
+        if 'appointment_data' in st.session_state and st.session_state.appointment_data:
+            st.success(f"**Appointment Booked:** {st.session_state.appointment_data['appointment_id']}")
+
 def display_appointment_card_from_dict(appointment):
     """Renders the appointment card from a dictionary."""
     appointment_html = f"""
@@ -491,6 +507,7 @@ def is_valid_booking_json(json_string):
 def main():
     """Main function to run the Streamlit application."""
     display_main_header()
+    setup_sidebar()
     
     agent_executor = get_agent_executor()
 
